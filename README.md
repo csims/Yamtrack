@@ -95,6 +95,12 @@ git clone https://github.com/FuzzyGrim/Yamtrack.git
 cd Yamtrack
 ```
 
+Install tailwind:
+
+```bash
+npm install tailwindcss @tailwindcss/cli
+```
+
 Install Redis or spin up a bare redis container:
 
 ```bash
@@ -119,7 +125,7 @@ Then run the following commands.
 python -m pip install -U -r requirements-dev.txt
 cd src
 python manage.py migrate
-python manage.py runserver & celery -A config worker --beat --scheduler django --loglevel DEBUG & tailwindcss -i ./static/css/input.css -o ./static/css/tailwind.css --watch
+python manage.py runserver & celery -A config worker --beat --scheduler django --loglevel DEBUG & npx tailwindcss -i ./static/css/input.css -o ./static/css/main.css --watch
 ```
 
 Go to: http://localhost:8000
