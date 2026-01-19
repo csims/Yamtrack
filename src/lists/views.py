@@ -1,8 +1,20 @@
 import logging
 
+from django.apps import apps
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Count, F, OuterRef, Q, Subquery
+from django.db.models import (
+    Case,
+    Count,
+    DecimalField,
+    F,
+    OuterRef,
+    Q,
+    Subquery,
+    Value,
+    When,
+)
+from django.db.models.functions import Coalesce
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
@@ -105,6 +117,7 @@ def list_detail(request, list_id):
             "list_detail_sort",
             request.GET.get("sort"),
         ),
+        "sort_dir": request.GET.get("dir"),
         "media_type": request.GET.get("type", "all"),
         "status_filter": request.user.update_preference(
             "list_detail_status",
@@ -113,6 +126,11 @@ def list_detail(request, list_id):
         "page": int(request.GET.get("page", 1)),
         "search_query": request.GET.get("q", ""),
     }
+    valid_sort_dirs = {"asc", "desc"}
+    if params["sort_dir"] not in valid_sort_dirs:
+        params["sort_dir"] = (
+            "desc" if params["sort_by"] in {"date_added", "rating"} else "asc"
+        )
 
     # Build and filter base queryset
     items = custom_list.items.all()
@@ -139,18 +157,66 @@ def list_detail(request, list_id):
         items = items.filter(id__in=media_by_item_id.keys())
 
     # Apply sorting
+    def sort_field(field_name, direction, *, nulls_last=None, nulls_first=None):
+        order = F(field_name)
+        last = True if nulls_last else None
+        first = True if nulls_first else None
+        if direction == "asc":
+            return order.asc(nulls_last=last, nulls_first=first)
+        return order.desc(nulls_last=last, nulls_first=first)
+
     sort_mapping = {
-        "date_added": ["-customlistitem__date_added"],
+        "date_added": [
+            sort_field("customlistitem__date_added", params["sort_dir"]),
+        ],
         "title": [
-            F("title").asc(nulls_last=True),
+            sort_field("title", params["sort_dir"], nulls_last=True),
             F("season_number").asc(nulls_first=True),
             F("episode_number").asc(nulls_first=True),
         ],
-        "media_type": ["media_type"],
+        "media_type": [sort_field("media_type", params["sort_dir"])],
     }
-    items = items.order_by(
-        *sort_mapping.get(params["sort_by"], ["-customlistitem__date_added"]),
-    )
+    if params["sort_by"] == "rating":
+        score_cases = []
+        score_field = DecimalField(max_digits=3, decimal_places=1)
+
+        for media_type in MediaTypes.values:
+            if media_type == MediaTypes.EPISODE.value:
+                continue
+
+            model = apps.get_model("app", media_type)
+            score_cases.append(
+                When(
+                    media_type=media_type,
+                    then=Subquery(
+                        model.objects.filter(
+                            item=OuterRef("pk"),
+                            user=request.user,
+                        )
+                        .values("score")[:1],
+                    ),
+                ),
+            )
+
+        items = items.annotate(
+            user_score=Coalesce(
+                Case(
+                    *score_cases,
+                    default=Value(0, output_field=score_field),
+                    output_field=score_field,
+                ),
+                Value(0, output_field=score_field),
+            ),
+        ).order_by(
+            sort_field("user_score", params["sort_dir"]),
+            F("title").asc(nulls_last=True),
+            F("season_number").asc(nulls_first=True),
+            F("episode_number").asc(nulls_first=True),
+        )
+    else:
+        items = items.order_by(
+            *sort_mapping.get(params["sort_by"], ["-customlistitem__date_added"]),
+        )
 
     # Paginate
     paginator = Paginator(items, 16)
@@ -179,6 +245,7 @@ def list_detail(request, list_id):
         if items_page.has_next()
         else None,
         "current_sort": params["sort_by"],
+        "current_sort_dir": params["sort_dir"],
         "current_status": params["status_filter"] or MediaStatusChoices.ALL,
         "sort_choices": ListDetailSortChoices.choices,
         "status_choices": MediaStatusChoices.choices,

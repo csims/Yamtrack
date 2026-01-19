@@ -41,9 +41,9 @@
     {% include "lists/components/list_form.html" %}
   </div>
 
-  <div x-data="{ sort: '{{ current_sort|escapejs }}', type: '{{ request.GET.type|default:'all'|escapejs }}', status: '{{ current_status|escapejs }}', query: '{{ request.GET.q|default:''|escapejs }}', mediaTypeLabels: {
+  <div x-data="{ sort: '{{ current_sort|escapejs }}', direction: '{{ current_sort_dir|escapejs }}', type: '{{ request.GET.type|default:'all'|escapejs }}', status: '{{ current_status|escapejs }}', query: '{{ request.GET.q|default:''|escapejs }}', mediaTypeLabels: {
     {% for media_type in media_types %}'{{ media_type }}': '{{ media_type|media_type_readable_plural }}',{% endfor %}
-    'all': 'All Types' }, statusLabels: {
+    'all': 'Type' }, statusLabels: {
     {% for value, label in status_choices %}
       '{{ value }}': '{{ label }}'
       {% if not forloop.last %},{% endif %}
@@ -54,6 +54,7 @@
     <!-- Form to manage state -->
     <form id="filter-form" class="hidden">
       <input type="hidden" name="sort" x-model="sort">
+      <input type="hidden" name="dir" x-model="direction">
       <input type="hidden" name="type" x-model="type">
       <input type="hidden" name="status" x-model="status">
       <input type="hidden" name="q" x-model="query">
@@ -80,7 +81,7 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-2 flex-shrink-0">
+      <div class="flex flex-wrap items-center gap-2 flex-shrink-0">
         {# Filter by Status #}
         <div class="relative" x-data="{ open: false }">
           <button class="h-10 flex items-center gap-2 px-4 bg-[#39404b] rounded-md hover:bg-[#454d5a] transition-colors cursor-pointer"
@@ -98,7 +99,7 @@
                  class="w-4 h-4">
               <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
             </svg>
-            <span class="text-sm" x-text="statusLabels[status] || status"></span>
+            <span class="text-sm" x-text="status === 'All' ? 'Status' : (statusLabels[status] || status)"></span>
             <svg xmlns="http://www.w3.org/2000/svg"
                  width="24"
                  height="24"
@@ -113,7 +114,7 @@
             </svg>
           </button>
 
-          <div class="absolute right-0 mt-2 py-1 w-48 bg-[#39404b] rounded-md shadow-lg overflow-hidden z-10 border border-gray-700"
+          <div class="absolute left-0 sm:left-auto sm:right-0 mt-2 py-1 w-48 bg-[#39404b] rounded-md shadow-lg overflow-hidden z-10 border border-gray-700"
                x-cloak
                x-show="open"
                @click.outside="open = false"
@@ -146,7 +147,7 @@
             {% include "app/icons/chevron-down.svg" with classes="w-4 h-4" %}
           </button>
 
-          <div class="absolute right-0 mt-2 py-1 w-48 bg-[#39404b] rounded-md shadow-lg overflow-hidden z-10 border border-gray-700"
+          <div class="absolute left-0 sm:left-auto sm:right-0 mt-2 py-1 w-48 bg-[#39404b] rounded-md shadow-lg overflow-hidden z-10 border border-gray-700"
                x-cloak
                x-show="open"
                @click.outside="open = false"
@@ -184,11 +185,11 @@
                   type="button">
             {% include "app/icons/arrows-up-down.svg" with classes="w-4 h-4" %}
             <span class="text-sm"
-                  x-text="sort === 'date_added' ? 'Date Added' : (sort === 'title' ? 'Title' : 'Media Type')"></span>
+                  x-text="sort === 'date_added' ? 'Date Added' : (sort === 'title' ? 'Title' : (sort === 'media_type' ? 'Media Type' : 'My Rating'))"></span>
             {% include "app/icons/chevron-down.svg" with classes="w-4 h-4" %}
           </button>
 
-          <div class="absolute right-0 mt-2 py-1 w-48 bg-[#39404b] rounded-md shadow-lg overflow-hidden z-10 border border-gray-700"
+          <div class="absolute left-0 sm:left-auto sm:right-0 mt-2 py-1 w-48 bg-[#39404b] rounded-md shadow-lg overflow-hidden z-10 border border-gray-700"
                x-cloak
                x-show="open"
                @click.outside="open = false"
@@ -210,6 +211,19 @@
             {% endfor %}
           </div>
         </div>
+        {# Sort direction #}
+        <button class="h-10 flex items-center gap-2 px-3 bg-[#39404b] rounded-md hover:bg-[#454d5a] transition-colors cursor-pointer"
+                hx-get="{% url 'list_detail' custom_list.id %}"
+                {% if items %}hx-target="#items-grid"{% else %}hx-target="this" hx-swap="none"{% endif %}
+                hx-include="#filter-form"
+                hx-indicator="#loading-indicator"
+                @click="direction = direction === 'asc' ? 'desc' : 'asc'"
+                type="button"
+                aria-label="Toggle sort direction">
+          <span x-show="direction === 'asc'">{% include "app/icons/chevron-up.svg" with classes="w-4 h-4" %}</span>
+          <span x-show="direction === 'desc'">{% include "app/icons/chevron-down.svg" with classes="w-4 h-4" %}</span>
+          <span class="text-sm" x-text="direction === 'asc' ? 'Asc' : 'Desc'"></span>
+        </button>
       </div>
     </div>
     {% if items %}

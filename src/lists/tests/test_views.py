@@ -433,12 +433,14 @@ class ListDetailViewTests(TestCase):
             item=self.movie_item,
             status=Status.COMPLETED.value,
             user=self.user,
+            score=8,
         )
 
         TV.objects.create(
             item=self.tv_item,
             status=Status.IN_PROGRESS.value,
             user=self.user,
+            score=6
         )
 
         Anime.objects.create(
@@ -454,6 +456,21 @@ class ListDetailViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["current_sort"], "title")
+        self.assertEqual(response.context["current_sort_dir"], "asc")
+
+        # Test title sorting descending
+        mock_update_preference.side_effect = ["title", None]
+        response = self.client.get(
+            reverse("list_detail", args=[self.custom_list.id])
+            + "?sort=title&dir=desc",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["current_sort"], "title")
+        self.assertEqual(response.context["current_sort_dir"], "desc")
+        self.assertEqual(
+            [item.title for item in response.context["items"]],
+            ["Test TV Show", "Test Movie", "Test Anime"],
+        )
 
         # Test media_type sorting
         mock_update_preference.side_effect = ["media_type", None]
@@ -462,6 +479,33 @@ class ListDetailViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["current_sort"], "media_type")
+
+        # Test rating sorting
+        mock_update_preference.side_effect = ["rating", None]
+        response = self.client.get(
+            reverse("list_detail", args=[self.custom_list.id]) + "?sort=rating",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["current_sort"], "rating")
+        self.assertEqual(response.context["current_sort_dir"], "desc")
+        self.assertEqual(
+            [item.title for item in response.context["items"]],
+            ["Test Movie", "Test TV Show", "Test Anime"],
+        )
+
+        # Test rating sorting ascending
+        mock_update_preference.side_effect = ["rating", None]
+        response = self.client.get(
+            reverse("list_detail", args=[self.custom_list.id])
+            + "?sort=rating&dir=asc",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["current_sort"], "rating")
+        self.assertEqual(response.context["current_sort_dir"], "asc")
+        self.assertEqual(
+            [item.title for item in response.context["items"]],
+            ["Test Anime", "Test TV Show", "Test Movie"],
+        )
 
     @patch.object(get_user_model(), "update_preference")
     @patch.object(CustomList, "user_can_view")
