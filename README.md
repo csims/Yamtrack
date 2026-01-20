@@ -123,9 +123,8 @@ Then run the following commands.
 
 ```bash
 python -m pip install -U -r requirements-dev.txt
-cd src
-python manage.py migrate
-python manage.py runserver & celery -A config worker --beat --scheduler django --loglevel DEBUG & npx tailwindcss -i ./static/css/input.css -o ./static/css/main.css --watch
+pushd src && python manage.py migrate && popd
+honcho start
 ```
 
 Go to: http://localhost:8000
