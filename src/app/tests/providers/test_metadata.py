@@ -172,6 +172,28 @@ class Metadata(TestCase):
         self.assertEqual(result[2]["air_date"], "2008-02-10")
         self.assertFalse(result[2]["history"], [])
 
+    def test_tmdb_process_episodes_image_fallback(self):
+        """Test episode image fallback to season image when still_path missing."""
+        season_metadata = {
+            "media_id": "1396",
+            "season_number": 1,
+            "image": "http://example.com/season.jpg",
+            "episodes": [
+                {
+                    "episode_number": 1,
+                    "air_date": "2008-01-20",
+                    "still_path": None,
+                    "name": "Pilot",
+                    "overview": "overview of the episode",
+                    "runtime": 23,
+                },
+            ],
+        }
+
+        result = tmdb.process_episodes(season_metadata, [])
+
+        self.assertEqual(result[0]["image"], "http://example.com/season.jpg")
+
     @patch("app.providers.tmdb.tv_with_seasons")
     def test_tmdb_episode(self, mock_tv_with_seasons):
         """Test the episode method for TMDB episodes."""
@@ -631,5 +653,4 @@ class Metadata(TestCase):
             hardcover.handle_error(error)
 
         self.assertEqual(cm.exception.provider, Sources.HARDCOVER.value)
-
 

@@ -1458,7 +1458,7 @@ class Season(Media):
                     # for manual seasons
                     image = episode["image"]
                 else:
-                    image = settings.IMG_NONE
+                    image = season_metadata.get("image", settings.IMG_NONE)
                 break
 
         item, _ = Item.objects.get_or_create(

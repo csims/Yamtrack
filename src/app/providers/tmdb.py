@@ -227,6 +227,7 @@ def enrich_season_with_tv_data(season_data, tv_data, media_id, season_number):
     season_data["tvdb_id"] = tv_data["tvdb_id"]
     season_data["external_links"] = tv_data["external_links"]
     season_data["genres"] = tv_data["genres"]
+    season_data["image"] = resolve_image(season_data.get("image"), tv_data.get("image"))
     if season_data["synopsis"] == "No synopsis available.":
         season_data["synopsis"] = tv_data["synopsis"]
     return season_data
@@ -455,6 +456,16 @@ def get_image_url(path):
     return settings.IMG_NONE
 
 
+def resolve_image(image, *fallbacks):
+    """Return the first non-placeholder image from the candidates."""
+    if image and image != settings.IMG_NONE:
+        return image
+    for fallback in fallbacks:
+        if fallback and fallback != settings.IMG_NONE:
+            return fallback
+    return settings.IMG_NONE
+
+
 def get_title(response):
     """Return the title for the media."""
     # tv shows have name instead of title
@@ -567,6 +578,10 @@ def get_related(related_medias, media_type, parent_response=None):
             "image": get_image_url(media["poster_path"]),
         }
         if media_type == MediaTypes.SEASON.value:
+            parent_image = None
+            if parent_response:
+                parent_image = get_image_url(parent_response.get("poster_path"))
+            data["image"] = resolve_image(data["image"], parent_image)
             data["media_id"] = parent_response["id"]
             data["title"] = parent_response["name"]
             data["season_number"] = media["season_number"]
@@ -594,6 +609,11 @@ def process_episodes(season_metadata, episodes_in_db):
 
     for episode in season_metadata["episodes"]:
         episode_number = episode["episode_number"]
+        season_image = season_metadata.get("image")
+        episode_image = resolve_image(
+            get_image_url(episode.get("still_path")),
+            season_image,
+        )
 
         episodes_metadata.append(
             {
@@ -603,7 +623,7 @@ def process_episodes(season_metadata, episodes_in_db):
                 "season_number": season_metadata["season_number"],
                 "episode_number": episode_number,
                 "air_date": episode["air_date"],  # when unknown, response returns null
-                "image": get_image_url(episode["still_path"]),
+                "image": episode_image,
                 "title": episode["name"],
                 "overview": episode["overview"],
                 "history": tracked_episodes.get(episode_number, []),
@@ -643,7 +663,10 @@ def episode(media_id, season_number, episode_number):
                 "title": season_metadata["title"],
                 "season_title": season_metadata["season_title"],
                 "episode_title": episode["name"],
-                "image": get_image_url(episode["still_path"]),
+                "image": resolve_image(
+                    get_image_url(episode.get("still_path")),
+                    season_metadata.get("image"),
+                ),
             }
 
     # Episode not found - throw ProviderAPIError

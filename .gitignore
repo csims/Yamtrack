@@ -4,9 +4,10 @@ __pycache__
 .coverage*
 venv
 src/staticfiles
-src/db/db.sqlite3
+db.sqlite3
 db.sqlite3-shm
 db.sqlite3-wal
+db.sqlite3-bak*
 .vscode/launch.json
 CLAUDE.md
 AGENTS.md
@@ -15,3 +16,6 @@ TODO.txt
 
 # npm
 node_modules
+
+# other
+trakt-backups
