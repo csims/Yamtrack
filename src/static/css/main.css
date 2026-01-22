@@ -357,6 +357,9 @@
   .bottom-full {
     bottom: 100%;
   }
+  .-left-\[50\%\] {
+    left: calc(50% * -1);
+  }
   .left-0 {
     left: calc(var(--spacing) * 0);
   }
@@ -2483,11 +2486,6 @@
   .md\:hidden {
     @media (width >= 48rem) {
       display: none;
-    }
-  }
-  .md\:h-40 {
-    @media (width >= 48rem) {
-      height: calc(var(--spacing) * 40);
     }
   }
   .md\:h-\[calc\(2\*1\.5rem\)\] {
