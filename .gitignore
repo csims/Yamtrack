@@ -10,7 +10,6 @@ db.sqlite3-wal
 db.sqlite3-bak*
 .vscode/launch.json
 CLAUDE.md
-AGENTS.md
 requests.http
 TODO.txt
 
