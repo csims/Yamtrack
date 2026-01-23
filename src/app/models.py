@@ -79,6 +79,7 @@ class Item(CalendarTriggerMixin, models.Model):
     image = models.URLField()  # if add default, custom media entry will show the value
     season_number = models.PositiveIntegerField(null=True, blank=True)
     episode_number = models.PositiveIntegerField(null=True, blank=True)
+    is_hidden_override = models.BooleanField(default=False)
 
     class Meta:
         """Meta options for the model."""
@@ -227,12 +228,22 @@ class MediaManager(models.Manager):
 
     def get_historical_models(self):
         """Return list of historical model names."""
-        return [f"historical{media_type}" for media_type in MediaTypes.values]
+        return [
+            f"historical{media_type}"
+            for media_type in MediaTypes.values
+            if media_type != MediaTypes.EPISODE.value
+        ]
 
     def get_media_list(self, user, media_type, status_filter, sort_filter, search=None):
         """Get media list based on filters, sorting and search."""
-        model = apps.get_model(app_label="app", model_name=media_type)
-        queryset = model.objects.filter(user=user.id)
+        if media_type == MediaTypes.EPISODE.value:
+            model = EpisodeWatch
+        else:
+            model = apps.get_model(app_label="app", model_name=media_type)
+        if media_type == MediaTypes.EPISODE.value:
+            queryset = model.objects.filter(related_season__user=user)
+        else:
+            queryset = model.objects.filter(user=user.id)
 
         if status_filter != users.models.MediaStatusChoices.ALL:
             queryset = queryset.filter(status=status_filter)
@@ -269,8 +280,8 @@ class MediaManager(models.Manager):
                     queryset=Season.objects.select_related("item"),
                 ),
                 Prefetch(
-                    "seasons__episodes",
-                    queryset=Episode.objects.select_related("item"),
+                    "seasons__episode_watches",
+                    queryset=EpisodeWatch.objects.select_related("item"),
                 ),
             )
 
@@ -285,8 +296,8 @@ class MediaManager(models.Manager):
         if media_type == MediaTypes.SEASON.value:
             return base_queryset.prefetch_related(
                 Prefetch(
-                    "episodes",
-                    queryset=Episode.objects.select_related("item"),
+                    "episode_watches",
+                    queryset=EpisodeWatch.objects.select_related("item"),
                 ),
             )
 
@@ -307,7 +318,7 @@ class MediaManager(models.Manager):
             # Annotate with the minimum start_date from related seasons/episodes
             queryset = queryset.annotate(
                 calculated_start_date=models.Min(
-                    "seasons__episodes__end_date",
+                    "seasons__episode_watches__watched_at",
                     filter=models.Q(seasons__item__season_number__gt=0),
                 ),
             )
@@ -320,7 +331,7 @@ class MediaManager(models.Manager):
             # Annotate with the maximum end_date from related seasons/episodes
             queryset = queryset.annotate(
                 calculated_end_date=models.Max(
-                    "seasons__episodes__end_date",
+                    "seasons__episode_watches__watched_at",
                     filter=models.Q(seasons__item__season_number__gt=0),
                 ),
             )
@@ -334,7 +345,7 @@ class MediaManager(models.Manager):
             queryset = queryset.annotate(
                 # Count episodes in regular seasons (season_number > 0)
                 calculated_progress=models.Count(
-                    "seasons__episodes",
+                    "seasons__episode_watches",
                     filter=models.Q(seasons__item__season_number__gt=0),
                 ),
             )
@@ -351,7 +362,7 @@ class MediaManager(models.Manager):
         if sort_filter == "start_date":
             # Annotate with the minimum end_date from related episodes
             queryset = queryset.annotate(
-                calculated_start_date=models.Min("episodes__end_date"),
+                calculated_start_date=models.Min("episode_watches__watched_at"),
             )
             return queryset.order_by(
                 models.F("calculated_start_date").asc(nulls_last=True),
@@ -361,7 +372,7 @@ class MediaManager(models.Manager):
         if sort_filter == "end_date":
             # Annotate with the maximum end_date from related episodes
             queryset = queryset.annotate(
-                calculated_end_date=models.Max("episodes__end_date"),
+                calculated_end_date=models.Max("episode_watches__watched_at"),
             )
             return queryset.order_by(
                 models.F("calculated_end_date").desc(nulls_last=True),
@@ -371,7 +382,7 @@ class MediaManager(models.Manager):
         if sort_filter == "progress":
             # Annotate with the maximum episode number
             queryset = queryset.annotate(
-                calculated_progress=models.Max("episodes__item__episode_number"),
+                calculated_progress=models.Max("episode_watches__item__episode_number"),
             )
             return queryset.order_by(
                 "-calculated_progress",
@@ -639,7 +650,10 @@ class MediaManager(models.Manager):
         instance_id,
     ):
         """Get user media object given the media type and item."""
-        model = apps.get_model(app_label="app", model_name=media_type)
+        if media_type == MediaTypes.EPISODE.value:
+            model = EpisodeWatch
+        else:
+            model = apps.get_model(app_label="app", model_name=media_type)
         params = self._get_media_params(
             user,
             media_type,
@@ -655,7 +669,10 @@ class MediaManager(models.Manager):
         instance_id,
     ):
         """Get user media object with prefetch_related applied."""
-        model = apps.get_model(app_label="app", model_name=media_type)
+        if media_type == MediaTypes.EPISODE.value:
+            model = EpisodeWatch
+        else:
+            model = apps.get_model(app_label="app", model_name=media_type)
         params = self._get_media_params(
             user,
             media_type,
@@ -695,7 +712,10 @@ class MediaManager(models.Manager):
         episode_number=None,
     ):
         """Filter media objects based on parameters."""
-        model = apps.get_model(app_label="app", model_name=media_type)
+        if media_type == MediaTypes.EPISODE.value:
+            model = EpisodeWatch
+        else:
+            model = apps.get_model(app_label="app", model_name=media_type)
         params = self._filter_media_params(
             media_type,
             media_id,
@@ -950,12 +970,12 @@ class TV(Media):
             {
                 "season": season.item.season_number,
                 "episode": episode.item.episode_number,
-                "end_date": episode.end_date,
+                "end_date": episode.watched_at,
             }
             for season in self.seasons.all()
-            if hasattr(season, "episodes") and season.item.season_number != 0
-            for episode in season.episodes.all()
-            if episode.end_date is not None
+            if hasattr(season, "episode_watches") and season.item.season_number != 0
+            for episode in season.episode_watches.all()
+            if episode.watched_at is not None
         ]
 
         if not watched_episodes:
@@ -1070,7 +1090,8 @@ class TV(Media):
             episodes_to_create.extend(
                 season_instance.get_remaining_eps(season_metadata),
             )
-        bulk_create_with_history(episodes_to_create, Episode)
+        if episodes_to_create:
+            EpisodeWatch.objects.bulk_create(episodes_to_create, batch_size=1000)
 
     def _mark_in_progress_seasons_as_dropped(self):
         """Mark all in-progress seasons as dropped."""
@@ -1150,6 +1171,8 @@ class Season(Media):
         on_delete=models.CASCADE,
         related_name="seasons",
     )
+    is_ignored = models.BooleanField(default=False)
+    is_specials_override = models.BooleanField(default=False)
 
     tracker = FieldTracker()
 
@@ -1189,9 +1212,9 @@ class Season(Media):
                 )
                 episodes_to_create = self.get_remaining_eps(season_metadata)
                 if episodes_to_create:
-                    bulk_create_with_history(
+                    EpisodeWatch.objects.bulk_create(
                         episodes_to_create,
-                        Episode,
+                        batch_size=1000,
                     )
 
             elif (
@@ -1221,7 +1244,7 @@ class Season(Media):
     @property
     def progress(self):
         """Return the current episode number of the season."""
-        episodes = self.episodes.all()
+        episodes = self.episode_watches.all()
         if not episodes:
             return 0
 
@@ -1253,9 +1276,9 @@ class Season(Media):
     def progressed_at(self):
         """Return the date when the last episode was watched."""
         dates = [
-            episode.end_date
-            for episode in self.episodes.all()
-            if episode.end_date is not None
+            episode.watched_at
+            for episode in self.episode_watches.all()
+            if episode.watched_at is not None
         ]
         return max(dates) if dates else None
 
@@ -1263,9 +1286,9 @@ class Season(Media):
     def start_date(self):
         """Return the date of the first episode watched."""
         dates = [
-            episode.end_date
-            for episode in self.episodes.all()
-            if episode.end_date is not None
+            episode.watched_at
+            for episode in self.episode_watches.all()
+            if episode.watched_at is not None
         ]
         return min(dates) if dates else None
 
@@ -1273,9 +1296,9 @@ class Season(Media):
     def end_date(self):
         """Return the date of the last episode watched."""
         dates = [
-            episode.end_date
-            for episode in self.episodes.all()
-            if episode.end_date is not None
+            episode.watched_at
+            for episode in self.episode_watches.all()
+            if episode.watched_at is not None
         ]
         return max(dates) if dates else None
 
@@ -1305,14 +1328,15 @@ class Season(Media):
         else:
             logger.info("No more episodes to watch.")
 
-    def watch(self, episode_number, end_date):
+    def watch(self, episode_number, end_date, source="manual"):
         """Create or add a repeat to an episode of the season."""
         item = self.get_episode_item(episode_number)
 
-        episode = Episode.objects.create(
+        episode = EpisodeWatch.objects.create(
             related_season=self,
             item=item,
-            end_date=end_date,
+            watched_at=end_date,
+            source=source,
         )
         logger.info(
             "%s created successfully.",
@@ -1327,10 +1351,10 @@ class Season(Media):
         """Unwatch the episode instance."""
         item = self.get_episode_item(episode_number)
 
-        episodes = Episode.objects.filter(
+        episodes = EpisodeWatch.objects.filter(
             related_season=self,
             item=item,
-        ).order_by("-end_date")
+        ).order_by("-watched_at")
 
         episode = episodes.first()
 
@@ -1406,9 +1430,11 @@ class Season(Media):
 
     def get_remaining_eps(self, season_metadata):
         """Return episodes needed to complete a season."""
-        latest_watched_ep_num = Episode.objects.filter(related_season=self).aggregate(
-            latest_watched_ep_num=Max("item__episode_number"),
-        )["latest_watched_ep_num"]
+        latest_watched_ep_num = EpisodeWatch.objects.filter(
+            related_season=self,
+        ).aggregate(latest_watched_ep_num=Max("item__episode_number"))[
+            "latest_watched_ep_num"
+        ]
 
         if latest_watched_ep_num is None:
             latest_watched_ep_num = 0
@@ -1418,7 +1444,7 @@ class Season(Media):
         # Calculate current time once before the loop
         now = timezone.now().replace(second=0, microsecond=0)
 
-        # Create Episode objects for the remaining episodes
+        # Create EpisodeWatch objects for the remaining episodes
         for episode in reversed(season_metadata["episodes"]):
             if episode["episode_number"] <= latest_watched_ep_num:
                 break
@@ -1428,10 +1454,11 @@ class Season(Media):
             # Resolve end_date based on user preference
             end_date = self.user.resolve_watch_date(now, episode.get("air_date"))
 
-            episode_db = Episode(
+            episode_db = EpisodeWatch(
                 related_season=self,
                 item=item,
-                end_date=end_date,
+                watched_at=end_date,
+                source="bulk",
             )
             episodes_to_create.append(episode_db)
 
@@ -1476,22 +1503,23 @@ class Season(Media):
         return item
 
 
-class Episode(models.Model):
-    """Model for episodes of a season."""
-
-    history = HistoricalRecords(
-        cascade_delete_history=True,
-        excluded_fields=["item", "related_season", "created_at"],
-    )
+class EpisodeWatch(models.Model):
+    """Model for episode watch events."""
 
     created_at = models.DateTimeField(auto_now_add=True)
-    item = models.ForeignKey(Item, on_delete=models.CASCADE, null=True)
+    item = models.ForeignKey(Item, on_delete=models.CASCADE)
     related_season = models.ForeignKey(
         Season,
         on_delete=models.CASCADE,
-        related_name="episodes",
+        related_name="episode_watches",
     )
-    end_date = models.DateTimeField(null=True, blank=True)
+    watched_at = models.DateTimeField(null=True, blank=True)
+    source = models.CharField(
+        max_length=30,
+        blank=True,
+        default="",
+        help_text="Origin of the watch event (manual, bulk, import, webhook).",
+    )
 
     class Meta:
         """Meta options for the model."""
@@ -1499,68 +1527,17 @@ class Episode(models.Model):
         ordering = [
             "related_season",
             "item__episode_number",
-            "-end_date",
+            "-watched_at",
             "-created_at",
+        ]
+        indexes = [
+            models.Index(fields=["related_season", "item"]),
+            models.Index(fields=["related_season", "watched_at"]),
         ]
 
     def __str__(self):
-        """Return the season and episode number."""
-        return self.item.__str__()
-
-    def save(self, *args, **kwargs):
-        """Save the episode instance."""
-        super().save(*args, **kwargs)
-
-        season_number = self.item.season_number
-        tv_with_seasons_metadata = providers.services.get_media_metadata(
-            "tv_with_seasons",
-            self.item.media_id,
-            self.item.source,
-            [season_number],
-        )
-        season_metadata = tv_with_seasons_metadata[f"season/{season_number}"]
-        max_progress = len(season_metadata["episodes"])
-
-        # clear prefetch cache to get the updated episodes
-        self.related_season.refresh_from_db()
-
-        season_just_completed = False
-        if self.item.episode_number == max_progress:
-            self.related_season.status = Status.COMPLETED.value
-            bulk_update_with_history(
-                [self.related_season],
-                Season,
-                fields=["status"],
-            )
-            season_just_completed = True
-
-        elif self.related_season.status != Status.IN_PROGRESS.value:
-            self.related_season.status = Status.IN_PROGRESS.value
-            bulk_update_with_history(
-                [self.related_season],
-                Season,
-                fields=["status"],
-            )
-
-        if season_just_completed:
-            last_season = tv_with_seasons_metadata["related"]["seasons"][-1][
-                "season_number"
-            ]
-            # mark the TV show as completed if it's the last season
-            if season_number == last_season:
-                self.related_season.related_tv.status = Status.COMPLETED.value
-                bulk_update_with_history(
-                    [self.related_season.related_tv],
-                    TV,
-                    fields=["status"],
-                )
-        elif self.related_season.related_tv.status != Status.IN_PROGRESS.value:
-            self.related_season.related_tv.status = Status.IN_PROGRESS.value
-            bulk_update_with_history(
-                [self.related_season.related_tv],
-                TV,
-                fields=["status"],
-            )
+        """Return a readable identifier for the watch event."""
+        return f"{self.item} (watch #{self.id})"
 
 
 class Manga(Media):

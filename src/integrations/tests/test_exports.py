@@ -10,7 +10,7 @@ from django.urls import reverse
 from app.models import (
     Anime,
     Book,
-    Episode,
+    EpisodeWatch,
     Game,
     Item,
     Manga,
@@ -74,10 +74,10 @@ class ExportCSVTest(TestCase):
             season_number=1,
             episode_number=1,
         )
-        Episode.objects.create(
+        EpisodeWatch.objects.create(
             item=item_episode,
             related_season=season,
-            end_date=datetime(2023, 6, 1, 0, 0, tzinfo=UTC),
+            watched_at=datetime(2023, 6, 1, 0, 0, tzinfo=UTC),
         )
 
         item_anime = Item.objects.create(
@@ -162,7 +162,7 @@ class ExportCSVTest(TestCase):
                 Q(tv__user=self.user)
                 | Q(movie__user=self.user)
                 | Q(season__user=self.user)
-                | Q(episode__related_season__user=self.user)
+                | Q(episodewatch__related_season__user=self.user)
                 | Q(anime__user=self.user)
                 | Q(manga__user=self.user)
                 | Q(game__user=self.user)

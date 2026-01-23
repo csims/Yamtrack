@@ -8,7 +8,7 @@ from app import statistics
 from app.models import (
     TV,
     Anime,
-    Episode,
+    EpisodeWatch,
     Item,
     MediaTypes,
     Movie,
@@ -121,16 +121,16 @@ class StatisticsDateFilteringTests(TestCase):
         )
 
         # Create episodes
-        self.episode1 = Episode.objects.create(
+        self.episode1 = EpisodeWatch.objects.create(
             item=self.episode1_item,
             related_season=self.season,
-            end_date=datetime.datetime(2025, 1, 1, 0, 0, tzinfo=datetime.UTC),
+            watched_at=datetime.datetime(2025, 1, 1, 0, 0, tzinfo=datetime.UTC),
         )
 
-        self.episode2 = Episode.objects.create(
+        self.episode2 = EpisodeWatch.objects.create(
             item=self.episode2_item,
             related_season=self.season,
-            end_date=datetime.datetime(2025, 1, 15, 0, 0, tzinfo=datetime.UTC),
+            watched_at=datetime.datetime(2025, 1, 15, 0, 0, tzinfo=datetime.UTC),
         )
 
         # Create movies for different date scenarios
@@ -511,16 +511,16 @@ class StatisticsTests(TestCase):
         )
 
         # Create episodes
-        self.episode1 = Episode.objects.create(
+        self.episode1 = EpisodeWatch.objects.create(
             item=self.episode1_item,
             related_season=self.season,
-            end_date=datetime.datetime(2025, 1, 1, 0, 0, tzinfo=datetime.UTC),
+            watched_at=datetime.datetime(2025, 1, 1, 0, 0, tzinfo=datetime.UTC),
         )
 
-        self.episode2 = Episode.objects.create(
+        self.episode2 = EpisodeWatch.objects.create(
             item=self.episode2_item,
             related_season=self.season,
-            end_date=datetime.datetime(2025, 1, 15, 0, 0, tzinfo=datetime.UTC),
+            watched_at=datetime.datetime(2025, 1, 15, 0, 0, tzinfo=datetime.UTC),
         )
 
         # Create a movie with different dates

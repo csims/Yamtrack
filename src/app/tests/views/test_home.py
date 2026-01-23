@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from app.models import (
     Anime,
-    Episode,
+    EpisodeWatch,
     Item,
     MediaTypes,
     Season,
@@ -50,10 +50,10 @@ class HomeViewTests(TestCase):
                 season_number=1,
                 episode_number=i,
             )
-            Episode.objects.create(
+            EpisodeWatch.objects.create(
                 item=episode_item,
                 related_season=season,
-                end_date=timezone.now() - timezone.timedelta(days=i),
+                watched_at=timezone.now() - timezone.timedelta(days=i),
             )
 
         anime_item = Item.objects.create(
@@ -138,10 +138,10 @@ class HomeViewTests(TestCase):
                 season_number=1,
                 episode_number=1,
             )
-            Episode.objects.create(
+            EpisodeWatch.objects.create(
                 item=episode_item,
                 related_season=season,
-                end_date=timezone.now(),
+                watched_at=timezone.now(),
             )
 
         # Now test the load more functionality

@@ -518,12 +518,12 @@ class TraktImporter:
 
         ep_key = f"{tmdb_id}:{season_number}:{episode_number}"
 
-        episode_obj = app.models.Episode(
+        episode_obj = app.models.EpisodeWatch(
             item=episode_item,
             related_season=season_obj,
-            end_date=watched_at,
+            watched_at=watched_at,
+            source="import",
         )
-        episode_obj._history_date = parse_datetime(watched_at)
         self.media_instances[MediaTypes.EPISODE.value][ep_key].append(episode_obj)
         self.bulk_media[MediaTypes.EPISODE.value].append(episode_obj)
 

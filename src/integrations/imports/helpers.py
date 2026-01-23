@@ -131,7 +131,7 @@ def update_season_references(seasons, user):
 
 
 def update_episode_references(episodes, user):
-    """Update episode references with actual Season instances.
+    """Update episode watch references with actual Season instances.
 
     When bulk_create skips existing seasons, episodes would still reference
     the unsaved season instances. This updates those references to point to
@@ -168,7 +168,10 @@ def bulk_create_media(bulk_media_list, user):
         if not bulk_media:
             continue
 
-        model = apps.get_model(app_label="app", model_name=media_type)
+        if media_type == MediaTypes.EPISODE.value:
+            model = app.models.EpisodeWatch
+        else:
+            model = apps.get_model(app_label="app", model_name=media_type)
 
         logger.info("Bulk importing %s", media_type)
 
@@ -182,12 +185,15 @@ def bulk_create_media(bulk_media_list, user):
             )
             update_episode_references(bulk_media, user)
 
-        bulk_create_with_history(
-            bulk_media,
-            model,
-            batch_size=500,
-            default_user=user,
-        )
+        if media_type == MediaTypes.EPISODE.value:
+            model.objects.bulk_create(bulk_media, batch_size=500)
+        else:
+            bulk_create_with_history(
+                bulk_media,
+                model,
+                batch_size=500,
+                default_user=user,
+            )
 
 
 def create_import_schedule(

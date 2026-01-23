@@ -140,10 +140,15 @@ class YamtrackImporter:
             },
         )
 
-        model = apps.get_model(app_label="app", model_name=media_type)
+        if media_type == MediaTypes.EPISODE.value:
+            model = app.models.EpisodeWatch
+        else:
+            model = apps.get_model(app_label="app", model_name=media_type)
         instance = model(item=item)
         if media_type != MediaTypes.EPISODE.value:  # episode has no user field
             instance.user = self.user
+        else:
+            instance.source = row.get("watch_source", "")
 
         row["item"] = item
         form = app.forms.get_form_class(media_type)(
@@ -204,4 +209,3 @@ class YamtrackImporter:
 
         msg = f"Missing metadata for: {row}"
         raise MediaImportError(msg)
-

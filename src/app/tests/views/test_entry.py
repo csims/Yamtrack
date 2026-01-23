@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from app.models import (
     TV,
-    Episode,
+    EpisodeWatch,
     Item,
     MediaTypes,
     Movie,
@@ -165,7 +165,7 @@ class CreateEntryViewTests(TestCase):
             "season_number": 1,
             "episode_number": 1,
             "parent_season": parent_season.id,
-            "end_date": "2023-01-02T00:00",
+            "watched_at": "2023-01-02T00:00",
         }
 
         response = self.client.post(reverse("create_entry"), form_data, follow=True)
@@ -181,10 +181,10 @@ class CreateEntryViewTests(TestCase):
             ).exists(),
         )
 
-        episode = Episode.objects.get(item__title="TV Show")
+        episode = EpisodeWatch.objects.get(item__title="TV Show")
         self.assertEqual(episode.related_season, parent_season)
-        end_date_local = timezone.localtime(episode.end_date)
-        self.assertEqual(end_date_local.strftime("%Y-%m-%d %H:%M"), "2023-01-02 00:00")
+        watched_at_local = timezone.localtime(episode.watched_at)
+        self.assertEqual(watched_at_local.strftime("%Y-%m-%d %H:%M"), "2023-01-02 00:00")
 
     def test_create_entry_post_duplicate_item(self):
         """Test creating a duplicate item."""
@@ -230,5 +230,4 @@ class CreateEntryViewTests(TestCase):
             self.client.post(reverse("create_entry"), form_data)
 
         self.assertEqual(Item.objects.count(), initial_count)
-
 

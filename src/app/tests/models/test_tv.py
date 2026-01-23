@@ -7,7 +7,7 @@ from django.test import TestCase
 
 from app.models import (
     TV,
-    Episode,
+    EpisodeWatch,
     Item,
     MediaTypes,
     Season,
@@ -52,10 +52,10 @@ class TVModel(TestCase):
             season_number=1,
             episode_number=1,
         )
-        Episode.objects.create(
+        EpisodeWatch.objects.create(
             item=item_ep1,
             related_season=season1,
-            end_date=datetime(2023, 6, 1, 0, 0, tzinfo=UTC),
+            watched_at=datetime(2023, 6, 1, 0, 0, tzinfo=UTC),
         )
 
         item_ep2 = Item.objects.create(
@@ -67,10 +67,10 @@ class TVModel(TestCase):
             season_number=1,
             episode_number=2,
         )
-        Episode.objects.create(
+        EpisodeWatch.objects.create(
             item=item_ep2,
             related_season=season1,
-            end_date=datetime(2023, 6, 2, 0, 0, tzinfo=UTC),
+            watched_at=datetime(2023, 6, 2, 0, 0, tzinfo=UTC),
         )
 
         item_season2 = Item.objects.create(
@@ -98,10 +98,10 @@ class TVModel(TestCase):
             season_number=2,
             episode_number=1,
         )
-        Episode.objects.create(
+        EpisodeWatch.objects.create(
             item=item_ep3,
             related_season=season2,
-            end_date=datetime(2023, 6, 4, 0, 0, tzinfo=UTC),
+            watched_at=datetime(2023, 6, 4, 0, 0, tzinfo=UTC),
         )
 
         item_ep4 = Item.objects.create(
@@ -113,10 +113,10 @@ class TVModel(TestCase):
             season_number=2,
             episode_number=2,
         )
-        Episode.objects.create(
+        EpisodeWatch.objects.create(
             item=item_ep4,
             related_season=season2,
-            end_date=datetime(2023, 6, 5, 0, 0, tzinfo=UTC),
+            watched_at=datetime(2023, 6, 5, 0, 0, tzinfo=UTC),
         )
 
     def test_tv_progress(self):
@@ -131,7 +131,7 @@ class TVModel(TestCase):
         )
 
     def test_tv_end_date(self):
-        """Test the end_date property of the Season model."""
+        """Test the end_date property of the TV model."""
         self.assertEqual(
             self.tv.end_date,
             datetime(2023, 6, 5, 0, 0, tzinfo=UTC),
@@ -242,7 +242,7 @@ class TVStatusTests(TestCase):
         )
 
         for season in self.tv.seasons.all():
-            self.assertTrue(season.episodes.exists())
+            self.assertTrue(season.episode_watches.exists())
 
     def test_dropped_status_marks_in_progress_seasons_dropped(self):
         """Test setting status to DROPPED marks in-progress seasons as dropped."""
@@ -320,5 +320,4 @@ class TVStatusTests(TestCase):
 
         season1 = Season.objects.get(pk=self.season1.pk)
         self.assertEqual(season1.status, original_season1_status)
-
 

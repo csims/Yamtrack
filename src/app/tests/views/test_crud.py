@@ -7,7 +7,7 @@ from django.urls import reverse
 from app.models import (
     TV,
     Anime,
-    Episode,
+    EpisodeWatch,
     Item,
     MediaTypes,
     Movie,
@@ -110,11 +110,11 @@ class CreateMedia(TestCase):
                 "season_number": 1,
                 "episode_number": 1,
                 "source": Sources.TMDB.value,
-                "date": "2023-06-01T00:00",
+                "watched_at": "2023-06-01T00:00",
             },
         )
         self.assertEqual(
-            Episode.objects.filter(
+            EpisodeWatch.objects.filter(
                 item__media_id="1668",
                 related_season__user=self.user,
                 item__episode_number=1,
@@ -200,10 +200,10 @@ class DeleteMedia(TestCase):
             season_number=1,
             episode_number=1,
         )
-        self.episode = Episode.objects.create(
+        self.episode = EpisodeWatch.objects.create(
             item=self.item_ep,
             related_season=self.season,
-            end_date=datetime.datetime(2023, 6, 1, 0, 0, tzinfo=datetime.UTC),
+            watched_at=datetime.datetime(2023, 6, 1, 0, 0, tzinfo=datetime.UTC),
         )
 
     def test_delete_tv(self):
@@ -232,7 +232,7 @@ class DeleteMedia(TestCase):
 
         self.assertEqual(Season.objects.filter(user=self.user).count(), 0)
         self.assertEqual(
-            Episode.objects.filter(related_season__user=self.user).count(),
+            EpisodeWatch.objects.filter(related_season__user=self.user).count(),
             0,
         )
 
@@ -242,13 +242,12 @@ class DeleteMedia(TestCase):
             reverse("media_delete"),
             data={
                 "instance_id": self.episode.id,
-                "media_type": MediaTypes.EPISODE.value,
+                "media_type": "episodewatch",
             },
         )
 
         self.assertEqual(
-            Episode.objects.filter(related_season__user=self.user).count(),
+            EpisodeWatch.objects.filter(related_season__user=self.user).count(),
             0,
         )
-
 

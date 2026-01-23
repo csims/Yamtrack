@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from app.models import TV, Anime, Episode, Item, MediaTypes, Movie, Season, Status
+from app.models import TV, Anime, EpisodeWatch, Item, MediaTypes, Movie, Season, Status
 from integrations.webhooks.emby import EmbyWebhookProcessor
 
 
@@ -70,12 +70,13 @@ class EmbyWebhookTests(TestCase):
         )
         self.assertEqual(season.status, Status.IN_PROGRESS.value)
 
-        episode = Episode.objects.get(
+        episode = EpisodeWatch.objects.get(
             item__media_id="1668",
             item__season_number=1,
             item__episode_number=1,
         )
-        self.assertIsNotNone(episode.end_date)
+        self.assertIsNotNone(episode.watched_at)
+        self.assertEqual(episode.source, "webhook")
 
     def test_anime_episode_mark_played(self):
         """Test webhook handles anime episode mark played event."""

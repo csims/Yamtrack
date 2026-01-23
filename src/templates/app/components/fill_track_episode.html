@@ -46,12 +46,12 @@
 
               {% for entry in episode.history %}
                 <div class="flex items-center justify-between bg-[#343a40] rounded-md p-3 border border-gray-600">
-                  <div class="text-sm text-white">{{ entry.end_date|date_tracker_format|default_if_none:"No date provided" }}</div>
+                  <div class="text-sm text-white">{{ entry.watched_at|date_tracker_format|default_if_none:"No date provided" }}</div>
                   <form method="post"
                         action="{% url 'media_delete' %}?next={{ request.path }}">
                     {% csrf_token %}
                     <input type="hidden" name="instance_id" value="{{ entry.id }}">
-                    <input type="hidden" name="media_type" value="episode">
+                    <input type="hidden" name="media_type" value="episodewatch">
                     <button class="text-red-400 hover:text-red-300 transition-colors text-sm px-2 py-1 hover:bg-red-600/20 rounded-md cursor-pointer">
                       Delete
                     </button>
@@ -83,7 +83,7 @@
           }">
             <input class="w-full p-3 bg-[#343a40] rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#4a9eff] appearance-none"
                    x-bind:type="inputType"
-                   name="end_date"
+                   name="watched_at"
                    onfocus="this.showPicker?.()"
                    x-model="inputDateTime">
             {% if episode.air_date %}

@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from app.models import (
     Anime,
-    Episode,
+    EpisodeWatch,
     Item,
     MediaTypes,
     Season,
@@ -47,10 +47,10 @@ class ProgressEditSeason(TestCase):
             season_number=1,
             episode_number=1,
         )
-        Episode.objects.create(
+        EpisodeWatch.objects.create(
             item=item_ep,
             related_season=self.season,
-            end_date=datetime.datetime(2023, 6, 1, 0, 0, tzinfo=datetime.UTC),
+            watched_at=datetime.datetime(2023, 6, 1, 0, 0, tzinfo=datetime.UTC),
         )
 
     def test_progress_increase(self):
@@ -69,12 +69,12 @@ class ProgressEditSeason(TestCase):
         )
 
         self.assertEqual(
-            Episode.objects.filter(item__media_id="1668").count(),
+            EpisodeWatch.objects.filter(item__media_id="1668").count(),
             2,
         )
 
         self.assertTrue(
-            Episode.objects.filter(
+            EpisodeWatch.objects.filter(
                 item__media_id="1668",
                 item__episode_number=2,
             ).exists(),
@@ -96,7 +96,7 @@ class ProgressEditSeason(TestCase):
         )
 
         self.assertEqual(
-            Episode.objects.filter(item__media_id="1668").count(),
+            EpisodeWatch.objects.filter(item__media_id="1668").count(),
             0,
         )
 

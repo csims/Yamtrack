@@ -129,6 +129,20 @@ honcho start
 
 Go to: http://localhost:8000
 
+### Tests
+
+Initial setup:
+
+```bash
+playwright install chromium
+```
+
+To run tests:
+
+```bash
+pytest src
+```
+
 ## 💪 Support the Project
 
 There are many ways you can support Yamtrack's development:

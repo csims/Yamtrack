@@ -103,6 +103,12 @@ Air date rule:
 Hidden episode rule:
 - Episodes flagged with `is_hidden_override` are excluded from totals, progress counts, calendar, and bulk watch flows. Any existing watch events for hidden episodes are ignored.
 
+Source assignment rule:
+- `source="manual"` for user-initiated watches (episode tracker UI).
+- `source="bulk"` for auto-created watches when bulk-completing a season/TV.
+- `source="import"` for importer-created watches.
+- `source="webhook"` for media server webhooks.
+
 ### In Progress (home)
 
 - Include shows that are engaged and not 100% complete.
@@ -162,6 +168,22 @@ Engaged rule:
    - One-time job to backfill watch events (if new table).
    - One-time job to backfill progress caches (if stored).
    - Optional management command to recalc progress and verify counts.
+
+## Progress log (implemented)
+
+- Added EpisodeWatch model and schema/data migrations: `src/app/migrations/0054_add_episodewatch_and_overrides.py`, `src/app/migrations/0055_backfill_episodewatch.py`.
+- Added admin-only overrides and user-facing ignore fields in `src/app/models.py`.
+- Switched watch creation and progress/date calculations to EpisodeWatch in `src/app/models.py`.
+- Updated watch form + episode save flow in `src/app/forms.py` and `src/app/views.py`.
+- Updated episode history display to use `watched_at` in `src/templates/app/components/fill_track_episode.html` and `src/templates/app/media_details.html`.
+- Updated statistics queries to use EpisodeWatch in `src/app/statistics.py`.
+- Registered EpisodeWatch in admin and excluded it from auto-registering with MediaAdmin in `src/app/admin.py`.
+- Updated history modal to render EpisodeWatch events and delete EpisodeWatch records via `src/app/views.py` and `src/templates/app/components/fill_history.html`.
+- Updated import/export/webhook paths to use EpisodeWatch, and adjusted related integration tests in `src/integrations/`.
+- Removed legacy Episode model/admin and added migration to drop Episode and HistoricalEpisode tables.
+- Updated export CSV schema to use `watched_at` and `watch_source` for EpisodeWatch, plus Yamtrack fixtures and importer alignment in `src/integrations/exports.py` and `src/integrations/imports/yamtrack.py`.
+- Updated history deletion to support EpisodeWatch and updated EpisodeWatch admin display (user + source) and help text in `src/app/views.py`, `src/app/admin.py`, `src/app/models.py`.
+- Migrated Episode-based tests to EpisodeWatch across models/views/providers in `src/app/tests/`.
 
 ## Backfill plan (if introducing EpisodeWatch)
 

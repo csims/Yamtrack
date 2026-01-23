@@ -15,7 +15,15 @@ from django.db.models import (
 from django.utils import timezone
 
 from app import config
-from app.models import TV, BasicMedia, Episode, MediaManager, MediaTypes, Season, Status
+from app.models import (
+    EpisodeWatch,
+    TV,
+    BasicMedia,
+    MediaManager,
+    MediaTypes,
+    Season,
+    Status,
+)
 from app.templatetags import app_tags
 
 logger = logging.getLogger(__name__)
@@ -35,13 +43,13 @@ def get_user_media(user, start_date, end_date):
     if TV in media_models or Season in media_models:
         if start_date is None and end_date is None:
             # No date filtering for "All Time"
-            base_episodes = Episode.objects.filter(
+            base_episodes = EpisodeWatch.objects.filter(
                 related_season__user=user,
             )
         else:
-            base_episodes = Episode.objects.filter(
+            base_episodes = EpisodeWatch.objects.filter(
                 related_season__user=user,
-                end_date__range=(start_date, end_date),
+                watched_at__range=(start_date, end_date),
             )
 
     for model in media_models:
@@ -60,7 +68,7 @@ def get_user_media(user, start_date, end_date):
                         "item",
                     ).prefetch_related(
                         Prefetch(
-                            "episodes",
+                            "episode_watches",
                             queryset=base_episodes.filter(
                                 related_season__related_tv__in=tv_ids,
                             ),
@@ -76,7 +84,7 @@ def get_user_media(user, start_date, end_date):
             queryset = Season.objects.filter(
                 id__in=season_ids,
             ).prefetch_related(
-                Prefetch("episodes", queryset=base_episodes),
+                Prefetch("episode_watches", queryset=base_episodes),
             )
         # For other models, apply date filtering conditionally
         elif start_date is None and end_date is None:
@@ -505,7 +513,11 @@ def get_filtered_historical_data(start_date, end_date, user):
     day_buckets = defaultdict(int)
 
     for model_name in historical_models:
-        model = apps.get_model("app", model_name)
+        try:
+            model = apps.get_model("app", model_name)
+        except LookupError:
+            logger.warning("Historical model %s not found; skipping.", model_name)
+            continue
 
         qs = model.objects.filter(history_user_id=user)
 

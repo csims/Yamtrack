@@ -7,7 +7,7 @@ from django_celery_beat.models import CrontabSchedule, PeriodicTask
 
 from app.models import (
     TV,
-    Episode,
+    EpisodeWatch,
     Item,
     MediaTypes,
     Season,
@@ -93,7 +93,7 @@ class HelpersTest(TestCase):
             episode_number=1,
         )
 
-        new_episode = Episode(
+        new_episode = EpisodeWatch(
             item=episode_item,
             related_season=Season(item=season_item, related_tv=tv, user=self.user),
         )
@@ -171,5 +171,4 @@ class HelpersTest(TestCase):
 
         schedule = CrontabSchedule.objects.first()
         self.assertEqual(schedule.day_of_week, "*/2")
-
 

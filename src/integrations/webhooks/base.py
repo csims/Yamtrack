@@ -360,19 +360,19 @@ class BaseWebhookProcessor:
         if self._is_played(payload):
             now = timezone.now().replace(second=0, microsecond=0)
             latest_episode = (
-                app.models.Episode.objects.filter(
+                app.models.EpisodeWatch.objects.filter(
                     item=episode_item,
                     related_season=season_instance,
                 )
-                .order_by("-end_date")
+                .order_by("-watched_at")
                 .first()
             )
 
             should_create = True
             # check for duplicate episode records,
             # sometimes webhooks are triggered multiple times #689
-            if latest_episode and latest_episode.end_date:
-                time_diff = abs((now - latest_episode.end_date).total_seconds())
+            if latest_episode and latest_episode.watched_at:
+                time_diff = abs((now - latest_episode.watched_at).total_seconds())
                 threshold = 5
                 if time_diff < threshold:
                     should_create = False
@@ -386,10 +386,11 @@ class BaseWebhookProcessor:
                     )
 
             if should_create:
-                app.models.Episode.objects.create(
+                app.models.EpisodeWatch.objects.create(
                     item=episode_item,
                     related_season=season_instance,
-                    end_date=now,
+                    watched_at=now,
+                    source="webhook",
                 )
                 logger.info(
                     "Marked episode as played: %s S%02dE%02d",

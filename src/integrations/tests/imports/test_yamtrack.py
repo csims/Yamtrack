@@ -8,7 +8,7 @@ from app.models import (
     TV,
     Anime,
     Book,
-    Episode,
+    EpisodeWatch,
     Manga,
     Movie,
     Season,
@@ -41,7 +41,7 @@ class ImportYamtrack(TestCase):
         self.assertEqual(Movie.objects.filter(user=self.user).count(), 1)
         self.assertEqual(Season.objects.filter(user=self.user).count(), 1)
         self.assertEqual(
-            Episode.objects.filter(related_season__user=self.user).count(),
+            EpisodeWatch.objects.filter(related_season__user=self.user).count(),
             24,
         )
 
@@ -158,5 +158,4 @@ class ImportYamtrackPartials(TestCase):
             books[2].end_date,
             datetime(2024, 3, 9, 0, 0, 0, tzinfo=UTC),
         )
-
 

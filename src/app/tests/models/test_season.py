@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from app.models import (
     TV,
-    Episode,
+    EpisodeWatch,
     Item,
     MediaTypes,
     Season,
@@ -52,10 +52,10 @@ class SeasonModel(TestCase):
             season_number=1,
             episode_number=1,
         )
-        Episode.objects.create(
+        EpisodeWatch.objects.create(
             item=item_ep1,
             related_season=self.season,
-            end_date=datetime(2023, 6, 1, 0, 0, tzinfo=UTC),
+            watched_at=datetime(2023, 6, 1, 0, 0, tzinfo=UTC),
         )
 
         item_ep2 = Item.objects.create(
@@ -67,10 +67,10 @@ class SeasonModel(TestCase):
             season_number=1,
             episode_number=2,
         )
-        Episode.objects.create(
+        EpisodeWatch.objects.create(
             item=item_ep2,
             related_season=self.season,
-            end_date=datetime(2023, 6, 2, 0, 0, tzinfo=UTC),
+            watched_at=datetime(2023, 6, 2, 0, 0, tzinfo=UTC),
         )
 
     def test_season_progress(self):
@@ -96,7 +96,7 @@ class SeasonModel(TestCase):
         self.season.status = Status.COMPLETED.value
         self.season.save(update_fields=["status"])
 
-        self.assertEqual(self.season.episodes.count(), 24)
+        self.assertEqual(self.season.episode_watches.count(), 24)
 
     @patch("app.models.Season.get_episode_item")
     def test_watch_method(self, mock_get_episode_item):
@@ -114,20 +114,20 @@ class SeasonModel(TestCase):
 
         self.season.watch(3, datetime(2023, 6, 3, 0, 0, tzinfo=UTC))
 
-        episode = Episode.objects.get(
+        episode = EpisodeWatch.objects.get(
             related_season=self.season,
             item=episode_item,
         )
-        self.assertEqual(episode.end_date, datetime(2023, 6, 3, 0, 0, tzinfo=UTC))
+        self.assertEqual(episode.watched_at, datetime(2023, 6, 3, 0, 0, tzinfo=UTC))
 
         self.season.watch(3, datetime(2023, 6, 4, 0, 0, tzinfo=UTC))
 
-        episodes = Episode.objects.filter(
+        episodes = EpisodeWatch.objects.filter(
             related_season=self.season,
             item=episode_item,
         )
         self.assertEqual(
-            episodes.first().end_date,
+            episodes.first().watched_at,
             datetime(2023, 6, 4, 0, 0, tzinfo=UTC),
         )
         self.assertEqual(episodes.count(), 2)
@@ -148,11 +148,11 @@ class SeasonModel(TestCase):
 
         self.season.watch(3, None)
 
-        episode = Episode.objects.get(
+        episode = EpisodeWatch.objects.get(
             related_season=self.season,
             item=episode_item,
         )
-        self.assertIsNone(episode.end_date)
+        self.assertIsNone(episode.watched_at)
 
     @patch("app.models.Season.get_episode_item")
     def test_unwatch_method(self, mock_get_episode_item):
@@ -168,16 +168,16 @@ class SeasonModel(TestCase):
         )
         mock_get_episode_item.return_value = episode_item
 
-        Episode.objects.create(
+        EpisodeWatch.objects.create(
             related_season=self.season,
             item=episode_item,
-            end_date=datetime(2023, 6, 3, 0, 0, tzinfo=UTC),
+            watched_at=datetime(2023, 6, 3, 0, 0, tzinfo=UTC),
         )
 
         self.season.unwatch(3)
 
-        with self.assertRaises(Episode.DoesNotExist):
-            Episode.objects.get(
+        with self.assertRaises(EpisodeWatch.DoesNotExist):
+            EpisodeWatch.objects.get(
                 related_season=self.season,
                 item=episode_item,
             )
@@ -196,20 +196,20 @@ class SeasonModel(TestCase):
         )
         mock_get_episode_item.return_value = episode_item
 
-        Episode.objects.create(
+        EpisodeWatch.objects.create(
             related_season=self.season,
             item=episode_item,
-            end_date=datetime(2023, 6, 3, 0, 0, tzinfo=UTC),
+            watched_at=datetime(2023, 6, 3, 0, 0, tzinfo=UTC),
         )
-        Episode.objects.create(
+        EpisodeWatch.objects.create(
             related_season=self.season,
             item=episode_item,
-            end_date=datetime(2024, 6, 3, 0, 0, tzinfo=UTC),
+            watched_at=datetime(2024, 6, 3, 0, 0, tzinfo=UTC),
         )
 
         self.season.unwatch(3)
 
-        episodes = Episode.objects.filter(
+        episodes = EpisodeWatch.objects.filter(
             related_season=self.season,
             item=episode_item,
         )
@@ -231,8 +231,8 @@ class SeasonModel(TestCase):
 
         self.season.unwatch(3)
 
-        with self.assertRaises(Episode.DoesNotExist):
-            Episode.objects.get(
+        with self.assertRaises(EpisodeWatch.DoesNotExist):
+            EpisodeWatch.objects.get(
                 related_season=self.season,
                 item=episode_item,
             )
@@ -292,9 +292,9 @@ class SeasonStatusTests(TestCase):
         self.season.status = Status.COMPLETED.value
         self.season.save()
 
-        self.assertEqual(self.season.episodes.count(), 3)
+        self.assertEqual(self.season.episode_watches.count(), 3)
         episode_numbers = set(
-            self.season.episodes.values_list("item__episode_number", flat=True),
+            self.season.episode_watches.values_list("item__episode_number", flat=True),
         )
         self.assertEqual(episode_numbers, {1, 2, 3})
 
@@ -346,12 +346,12 @@ class SeasonStatusTests(TestCase):
             season_number=1,
             episode_number=1,
         )
-        Episode.objects.bulk_create(
+        EpisodeWatch.objects.bulk_create(
             [
-                Episode(
+                EpisodeWatch(
                     item=ep_item,
                     related_season=self.season,
-                    end_date=timezone.now(),
+                    watched_at=timezone.now(),
                 ),
             ],
         )
@@ -450,7 +450,8 @@ class SeasonGetRemainingEpsQuickWatchDateTests(TestCase):
         episodes = self.season.get_remaining_eps(self.mock_metadata)
 
         for ep in episodes:
-            self.assertIsNotNone(ep.end_date)
+            self.assertIsNotNone(ep.watched_at)
+            self.assertEqual(ep.source, "bulk")
 
     @patch("app.models.Season.get_episode_item")
     def test_get_remaining_eps_no_date(self, mock_get_episode_item):
@@ -472,7 +473,8 @@ class SeasonGetRemainingEpsQuickWatchDateTests(TestCase):
         episodes = self.season.get_remaining_eps(self.mock_metadata)
 
         for ep in episodes:
-            self.assertIsNone(ep.end_date)
+            self.assertIsNone(ep.watched_at)
+            self.assertEqual(ep.source, "bulk")
 
     @patch("app.models.Season.get_episode_item")
     def test_get_remaining_eps_release_date(self, mock_get_episode_item):
@@ -498,9 +500,11 @@ class SeasonGetRemainingEpsQuickWatchDateTests(TestCase):
         episodes = self.season.get_remaining_eps(self.mock_metadata)
 
         # Episodes returned in reverse order (3, 2, 1)
-        self.assertIsNone(episodes[0].end_date)  # Episode 3 has no air_date
-        self.assertEqual(episodes[1].end_date, datetime(1994, 9, 29, tzinfo=UTC))
-        self.assertEqual(episodes[2].end_date, datetime(1994, 9, 22, tzinfo=UTC))
+        self.assertIsNone(episodes[0].watched_at)  # Episode 3 has no air_date
+        self.assertEqual(episodes[1].watched_at, datetime(1994, 9, 29, tzinfo=UTC))
+        self.assertEqual(episodes[2].watched_at, datetime(1994, 9, 22, tzinfo=UTC))
+        for ep in episodes:
+            self.assertEqual(ep.source, "bulk")
 
     @patch("app.models.providers.services.get_media_metadata")
     def test_season_completion_with_no_date(self, mock_get_metadata):
@@ -519,10 +523,10 @@ class SeasonGetRemainingEpsQuickWatchDateTests(TestCase):
         self.season.status = Status.COMPLETED.value
         self.season.save()
 
-        episodes = Episode.objects.filter(related_season=self.season)
+        episodes = EpisodeWatch.objects.filter(related_season=self.season)
         self.assertEqual(episodes.count(), 2)
         for ep in episodes:
-            self.assertIsNone(ep.end_date)
+            self.assertIsNone(ep.watched_at)
 
     @patch("app.models.providers.services.get_media_metadata")
     def test_season_completion_with_release_date(self, mock_get_metadata):
@@ -549,9 +553,9 @@ class SeasonGetRemainingEpsQuickWatchDateTests(TestCase):
         self.season.status = Status.COMPLETED.value
         self.season.save()
 
-        episodes = Episode.objects.filter(related_season=self.season).order_by(
+        episodes = EpisodeWatch.objects.filter(related_season=self.season).order_by(
             "item__episode_number",
         )
         self.assertEqual(episodes.count(), 2)
-        self.assertEqual(episodes[0].end_date, datetime(1994, 9, 22, tzinfo=UTC))
-        self.assertEqual(episodes[1].end_date, datetime(1994, 9, 29, tzinfo=UTC))
+        self.assertEqual(episodes[0].watched_at, datetime(1994, 9, 22, tzinfo=UTC))
+        self.assertEqual(episodes[1].watched_at, datetime(1994, 9, 29, tzinfo=UTC))
