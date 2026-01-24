@@ -430,9 +430,20 @@ def get_seasons_to_process(tv_item):
         logger.warning("No seasons found for TV show: %s", tv_item)
         return []
 
-    # Get all season numbers
+    specials_override_numbers = set(
+        Item.objects.filter(
+            media_id=tv_item.media_id,
+            source=tv_item.source,
+            media_type=MediaTypes.SEASON.value,
+            is_specials_override=True,
+        ).values_list("season_number", flat=True),
+    )
+    # Get all season numbers excluding specials
     season_numbers = [
-        season["season_number"] for season in tv_metadata["related"]["seasons"]
+        season["season_number"]
+        for season in tv_metadata["related"]["seasons"]
+        if season["season_number"] != 0
+        and season["season_number"] not in specials_override_numbers
     ]
 
     if not season_numbers:
@@ -506,6 +517,9 @@ def process_tv_seasons(tv_item, seasons_to_process, events_bulk):
                 "image": season_metadata["image"],
             },
         )
+
+        if season_item.season_number == 0 or season_item.is_specials_override:
+            continue
 
         # Process episodes for this season
         process_season_episodes(season_item, season_metadata, events_bulk)

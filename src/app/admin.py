@@ -19,8 +19,9 @@ class ItemAdmin(admin.ModelAdmin):
         "episode_number",
         "media_type",
         "source",
+        "is_specials_override",
     ]
-    list_filter = ["media_type", "source"]
+    list_filter = ["media_type", "source", "is_specials_override"]
 
 
 class EpisodeWatchAdmin(admin.ModelAdmin):

@@ -80,6 +80,7 @@ class Item(CalendarTriggerMixin, models.Model):
     season_number = models.PositiveIntegerField(null=True, blank=True)
     episode_number = models.PositiveIntegerField(null=True, blank=True)
     is_hidden_override = models.BooleanField(default=False)
+    is_specials_override = models.BooleanField(default=False)
 
     class Meta:
         """Meta options for the model."""
@@ -319,7 +320,10 @@ class MediaManager(models.Manager):
             queryset = queryset.annotate(
                 calculated_start_date=models.Min(
                     "seasons__episode_watches__watched_at",
-                    filter=models.Q(seasons__item__season_number__gt=0),
+                    filter=models.Q(
+                        seasons__item__season_number__gt=0,
+                        seasons__item__is_specials_override=False,
+                    ),
                 ),
             )
             return queryset.order_by(
@@ -332,7 +336,10 @@ class MediaManager(models.Manager):
             queryset = queryset.annotate(
                 calculated_end_date=models.Max(
                     "seasons__episode_watches__watched_at",
-                    filter=models.Q(seasons__item__season_number__gt=0),
+                    filter=models.Q(
+                        seasons__item__season_number__gt=0,
+                        seasons__item__is_specials_override=False,
+                    ),
                 ),
             )
             return queryset.order_by(
@@ -341,12 +348,15 @@ class MediaManager(models.Manager):
             )
 
         if sort_filter == "progress":
-            # Annotate with the sum of episodes watched (excluding season 0)
+            # Annotate with the sum of episodes watched (excluding season 0 and specials overrides)
             queryset = queryset.annotate(
-                # Count episodes in regular seasons (season_number > 0)
+                # Count episodes in regular seasons (season_number > 0 and excluding specials overrides)
                 calculated_progress=models.Count(
                     "seasons__episode_watches",
-                    filter=models.Q(seasons__item__season_number__gt=0),
+                    filter=models.Q(
+                        seasons__item__season_number__gt=0,
+                        seasons__item__is_specials_override=False,
+                    ),
                 ),
             )
             return queryset.order_by(
@@ -576,6 +586,7 @@ class MediaManager(models.Manager):
             item__source=tv_list[0].item.source if tv_list else None,
             item__media_type=MediaTypes.SEASON.value,
             item__season_number__gt=0,
+            item__is_specials_override=False,
             datetime__lte=current_datetime,
             content_number__isnull=False,
         ).select_related("item")
@@ -960,7 +971,7 @@ class TV(Media):
         return sum(
             season.progress
             for season in self.seasons.all()
-            if season.item.season_number != 0
+            if season.item.season_number != 0 and not season.item.is_specials_override
         )
 
     @property
@@ -973,7 +984,11 @@ class TV(Media):
                 "end_date": episode.watched_at,
             }
             for season in self.seasons.all()
-            if hasattr(season, "episode_watches") and season.item.season_number != 0
+            if (
+                hasattr(season, "episode_watches")
+                and season.item.season_number != 0
+                and not season.item.is_specials_override
+            )
             for episode in season.episode_watches.all()
             if episode.watched_at is not None
         ]
@@ -994,7 +1009,11 @@ class TV(Media):
         dates = [
             season.progressed_at
             for season in self.seasons.all()
-            if season.progressed_at and season.item.season_number != 0
+            if (
+                season.progressed_at
+                and season.item.season_number != 0
+                and not season.item.is_specials_override
+            )
         ]
         return max(dates) if dates else None
 
@@ -1004,7 +1023,11 @@ class TV(Media):
         dates = [
             season.start_date
             for season in self.seasons.all()
-            if season.start_date and season.item.season_number != 0
+            if (
+                season.start_date
+                and season.item.season_number != 0
+                and not season.item.is_specials_override
+            )
         ]
         return min(dates) if dates else None
 
@@ -1014,7 +1037,11 @@ class TV(Media):
         dates = [
             season.end_date
             for season in self.seasons.all()
-            if season.end_date and season.item.season_number != 0
+            if (
+                season.end_date
+                and season.item.season_number != 0
+                and not season.item.is_specials_override
+            )
         ]
         return max(dates) if dates else None
 
@@ -1034,10 +1061,19 @@ class TV(Media):
         seasons_to_update = []
         episodes_to_create = []
 
+        specials_override_numbers = set(
+            Item.objects.filter(
+                media_id=self.item.media_id,
+                source=self.item.source,
+                media_type=MediaTypes.SEASON.value,
+                is_specials_override=True,
+            ).values_list("season_number", flat=True),
+        )
         season_numbers = [
             season["season_number"]
             for season in tv_metadata["related"]["seasons"]
             if season["season_number"] != 0
+            and season["season_number"] not in specials_override_numbers
         ]
         tv_with_seasons_metadata = providers.services.get_media_metadata(
             "tv_with_seasons",
@@ -1113,6 +1149,7 @@ class TV(Media):
         """Find the next available season to watch and set it to in-progress."""
         all_seasons = self.seasons.filter(
             item__season_number__gt=0,
+            item__is_specials_override=False,
         ).order_by("item__season_number")
 
         next_unwatched_season = all_seasons.exclude(
@@ -1126,6 +1163,14 @@ class TV(Media):
                 self.item.media_id,
                 self.item.source,
             )
+            specials_override_numbers = set(
+                Item.objects.filter(
+                    media_id=self.item.media_id,
+                    source=self.item.source,
+                    media_type=MediaTypes.SEASON.value,
+                    is_specials_override=True,
+                ).values_list("season_number", flat=True),
+            )
 
             existing_season_numbers = set(
                 all_seasons.values_list("item__season_number", flat=True),
@@ -1133,7 +1178,11 @@ class TV(Media):
 
             for season_data in tv_metadata["related"]["seasons"]:
                 season_number = season_data["season_number"]
-                if season_number > 0 and season_number not in existing_season_numbers:
+                if (
+                    season_number > 0
+                    and season_number not in existing_season_numbers
+                    and season_number not in specials_override_numbers
+                ):
                     item, _ = Item.objects.get_or_create(
                         media_id=self.item.media_id,
                         source=self.item.source,
@@ -1172,7 +1221,6 @@ class Season(Media):
         related_name="seasons",
     )
     is_ignored = models.BooleanField(default=False)
-    is_specials_override = models.BooleanField(default=False)
 
     tracker = FieldTracker()
 

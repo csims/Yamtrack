@@ -106,6 +106,8 @@ class EventManager(models.Manager):
                 user=user,
                 item__media_id=OuterRef("media_id"),
                 status__in=INACTIVE_TRACKING_STATUSES,
+                item__season_number__gt=0,
+                item__is_specials_override=False,
             )
             .values("item__media_id")
             .annotate(min_season=Min("item__season_number"))
@@ -117,6 +119,8 @@ class EventManager(models.Manager):
             Item.objects.filter(
                 media_id__in=active_tv_shows,
                 media_type=MediaTypes.SEASON.value,
+                season_number__gt=0,
+                is_specials_override=False,
             )
             .annotate(
                 first_dropped_season=Subquery(first_dropped_seasons),
@@ -138,6 +142,8 @@ class EventManager(models.Manager):
             Q(
                 item__media_type=MediaTypes.SEASON.value,
                 item__media_id__in=active_tv_shows,
+                item__season_number__gt=0,
+                item__is_specials_override=False,
             )
             & ~exclude_query
         )

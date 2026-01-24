@@ -123,6 +123,44 @@ class TVModel(TestCase):
         """Test the progress property of the Season model."""
         self.assertEqual(self.tv.progress, 4)
 
+    def test_tv_progress_excludes_specials_override(self):
+        """Test that specials overrides do not affect TV progress or dates."""
+        item_special = Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Friends",
+            image="http://example.com/image.jpg",
+            season_number=3,
+            is_specials_override=True,
+        )
+        season_special = Season.objects.create(
+            item=item_special,
+            related_tv=self.tv,
+            user=self.user,
+            status=Status.IN_PROGRESS.value,
+        )
+        item_ep_special = Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            title="Friends",
+            image="http://example.com/image.jpg",
+            season_number=3,
+            episode_number=1,
+        )
+        EpisodeWatch.objects.create(
+            item=item_ep_special,
+            related_season=season_special,
+            watched_at=datetime(2023, 6, 10, 0, 0, tzinfo=UTC),
+        )
+
+        self.assertEqual(self.tv.progress, 4)
+        self.assertEqual(
+            self.tv.end_date,
+            datetime(2023, 6, 5, 0, 0, tzinfo=UTC),
+        )
+
     def test_tv_start_date(self):
         """Test the start_date property of the Season model."""
         self.assertEqual(
@@ -320,4 +358,3 @@ class TVStatusTests(TestCase):
 
         season1 = Season.objects.get(pk=self.season1.pk)
         self.assertEqual(season1.status, original_season1_status)
-
