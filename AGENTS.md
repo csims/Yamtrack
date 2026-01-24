@@ -33,3 +33,6 @@
 ## Configuration & Security Notes
 - Local dev expects a `.env` file with API keys and `SECRET`; see `README.md` for the base list.
 - Redis is required for Celery; Docker users can start a standalone Redis container as documented.
+
+## Changes Since Forking
+- Changes that have been made to this repo after forking it from the original start at commit hash 6cb3c458

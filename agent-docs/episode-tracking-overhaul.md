@@ -10,14 +10,14 @@ This document captures the agreed decisions and a proposed implementation breakd
 - **Rewatches** are logged as additional watch events; no per-rewatch progress UX required yet.
 - **Bulk mark watched on release dates** only applies to already-aired episodes; specials are excluded at TV-level.
 - **Statuses** kept at TV level only: Planned, On hold, Dropped. These statuses hide a show from calendar and In Progress but are still filterable on the TV shows page.
-- **Seasons** do not use statuses. A season can be manually ignored/unignored for In Progress (similar to Specials behavior).
+- **Seasons** do not use statuses. A season can be manually ignored/unignored for In Progress (similar to Specials behavior) at the user level.
 
 ## Open questions (resolve before implementation)
 
 Resolved:
 - Specials detection: `season_number == 0` OR admin-only `is_specials_override` flag.
 - Episode air date: missing/future air dates are excluded from totals and from bulk “watch on air date”. Manual watches are allowed but do not count toward completion until a valid air date exists.
-- Episode overrides: admin-only `is_hidden_override` to treat an episode as non-existent (hidden from UI, excluded from totals and bulk operations).
+- Admin-only `is_hidden_override` on Item. If this flag is set, the item should be treated as non-existent (hidden from UI, excluded from totals and any bulk operations). Also applies to episodes.
 
 ## Proposed data model changes
 
@@ -82,16 +82,16 @@ Caches are derived from `EpisodeWatch` and should be recomputed on writes or via
 
 ### Admin overrides for metadata cleanup
 
-- `Season.is_specials_override` (admin-only)
 - `Season.is_ignored` (user-facing)
-- `Item.is_hidden_override` for episode items (admin-only; treated as non-existent)
+- `Item.is_specials_override` (admin-only)
+- `Item.is_hidden_override` for items, including episodes (admin-only; treated as non-existent)
 
 ## Core behavior rules
 
 ### Progress calculations
 
-- **Season progress**: distinct aired episodes watched / aired episodes total (excluding specials).
-- **TV progress**: sum of eligible seasons (excluding specials and ignored seasons).
+- **Season progress**: distinct aired episodes watched / aired episodes total, excluding any episodes flagged with `is_hidden_override`
+- **TV progress**: distinct aired episodes watched / aired episodes total (excluding anything with `is_hidden_override` set, any episodes in specials seasons, and any seasons marked as ignored).
 - **Jumping around**: progress based on distinct episodes watched, not max episode number.
 
 Ignored season rule:
@@ -100,8 +100,8 @@ Ignored season rule:
 Air date rule:
 - Episodes with missing/future air dates are excluded from totals and from completion counts, even if manually watched, until a valid air date exists.
 
-Hidden episode rule:
-- Episodes flagged with `is_hidden_override` are excluded from totals, progress counts, calendar, and bulk watch flows. Any existing watch events for hidden episodes are ignored.
+Hidden item rule:
+- Items (including episodes) flagged with `is_hidden_override` are excluded from totals, progress counts, calendar, and bulk watch flows, and hidden from the UI completely. Any existing watch events for hidden episodes are ignored.
 
 Source assignment rule:
 - `source="manual"` for user-initiated watches (episode tracker UI).
@@ -109,7 +109,7 @@ Source assignment rule:
 - `source="import"` for importer-created watches.
 - `source="webhook"` for media server webhooks.
 
-### In Progress (home)
+### In Progress (home, filters)
 
 - Include shows that are engaged and not 100% complete.
 - Exclude shows with TV status = Planned/On hold/Dropped.
@@ -121,7 +121,7 @@ Engaged rule:
 
 ### Bulk mark completed
 
-- **Season**: mark all remaining aired episodes watched (ignore specials). Support “watched now” vs “watched on air date”.
+- **Season**: mark any remaining unwatched aired episodes watched. Support “watched now” vs “watched on air date”.
 - **TV**: same as above, across all non-ignored, non-special seasons.
 - Only episodes with aired dates are eligible for “watched on air date”.
 
@@ -129,20 +129,20 @@ Engaged rule:
 
 - Exclude specials and any show with TV status On hold/Dropped.
 - If season is ignored, its episodes should not appear.
- - Exclude hidden episodes.
+- Exclude hidden episodes.
 
 ## Implementation chunks
 
 1) **Spec + ruleset validation**
-   - Confirm specials identification and air date source.
+   - (DONE) Confirm specials identification and air date source.
 
 2) **Schema + migrations**
-   - Add `EpisodeWatch` model (or adapt existing `Episode`).
-   - Add season ignore flag (likely on Season media row).
-   - Add season specials override flag (admin-only).
-   - Add episode hidden override on Item (admin-only).
+   - (DONE) Add `EpisodeWatch` model (or adapt existing `Episode`).
+   - (DONE) Add season ignore flag on Season (per user, user-facing).
+   - (DONE) Add season specials override flag (sitewide, admin-only).
+   - (DONE) Add hidden override on Item (sitewide, admin-only).
    - Add optional progress cache fields/tables.
-   - Backfill watch events from existing data.
+   - (DONE) Backfill watch events from existing data.
 
 3) **Progress engine**
    - Helpers to compute aired episode totals (excluding specials, ignored seasons).
@@ -150,13 +150,14 @@ Engaged rule:
    - Update caches on watch event creation and on season ignore toggle.
 
 4) **Watch flows**
-   - Single episode watch creates EpisodeWatch.
+   - (DONE) Single episode watch creates EpisodeWatch.
    - Bulk mark season/TV watched with “now” or “air date” options.
    - Ensure bulk operations skip specials and unaired episodes.
 
 5) **UI and queries**
    - Update In Progress home query to TV-level.
    - Update TV shows filtering: Completed (100%), In progress (started but <100%).
+      - This applies across any pages with status filters such as the /medialist/tv page and lists.
    - Ensure calendar hides specials + ignored seasons + On hold/Dropped.
 
 6) **History/statistics alignment**
@@ -165,7 +166,7 @@ Engaged rule:
    - Update `agent-docs/history-tracking.md` for the new flows.
 
 7) **Backfill + maintenance tasks**
-   - One-time job to backfill watch events (if new table).
+   - (DONE) One-time job to backfill watch events (if new table).
    - One-time job to backfill progress caches (if stored).
    - Optional management command to recalc progress and verify counts.
 
@@ -185,7 +186,7 @@ Engaged rule:
 - Updated history deletion to support EpisodeWatch and updated EpisodeWatch admin display (user + source) and help text in `src/app/views.py`, `src/app/admin.py`, `src/app/models.py`.
 - Migrated Episode-based tests to EpisodeWatch across models/views/providers in `src/app/tests/`.
 
-## Backfill plan (if introducing EpisodeWatch)
+## Backfill plan (if introducing EpisodeWatch) (DONE)
 
 1) Schema migration:
    - Create `EpisodeWatch` model + indexes.

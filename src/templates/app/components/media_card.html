@@ -13,7 +13,7 @@
     </a>
 
     {% if media.status %}
-      <div class="absolute top-2 left-2 bg-gray-900/90 text-white text-xs px-2 py-1 rounded-md flex items-center shadow-md">
+      <div class="absolute top-2 left-2 bg-gray-900/90 text-white text-xs px-2 py-1 rounded-md flex items-center shadow-md z-1">
         {% if media.status == Status.COMPLETED.value %}
           <div class="w-4 h-4 {{ Status.COMPLETED.value|status_color }} {% if media.start_date or media.end_date %}mr-1.5{% endif %}">
             {% include "app/icons/states/completed.svg" %}
@@ -49,14 +49,14 @@
     {% endif %}
 
     {% if media.score is not None %}
-      <div class="absolute {% if from_grid %}sm:top-2 sm:right-2 sm:left-auto{% endif %} top-10 left-2 bg-gray-900/90 text-white text-xs px-2 py-1 rounded-md flex items-center shadow-md">
+      <div class="absolute {% if from_grid %}sm:top-2 sm:right-2 sm:left-auto{% endif %} top-10 left-2 bg-gray-900/90 text-white text-xs px-2 py-1 rounded-md flex items-center shadow-md z-1">
         {% include "app/icons/star.svg" with classes="w-4 h-4 text-yellow-400 mr-1 fill-current" %}
         <span class="text-sm text-white">{{ media.formatted_score }}</span>
       </div>
     {% endif %}
 
     {% if media.progress and media_type != MediaTypes.MOVIE.value %}
-      <div class="absolute bottom-2 left-2 bg-gray-900/90 text-white text-xs px-2 py-1 rounded-md flex items-center shadow-md">
+      <div class="absolute bottom-2 left-2 bg-gray-900/90 text-white text-xs px-2 py-1 rounded-md flex items-center shadow-md z-1">
         <span class="text-sm text-white">
           {{ media.formatted_progress }}
           {% if media.max_progress %}/ {{ media.max_progress }}{% endif %}
@@ -65,13 +65,13 @@
     {% endif %}
 
     {% if media.repeats > 1 %}
-      <div class="absolute sm:bottom-2 sm:right-2 sm:left-auto bottom-10 left-2 bg-gray-900/90 text-white text-xs px-2 py-1 rounded-md flex items-center shadow-md">
+      <div class="absolute sm:bottom-2 sm:right-2 sm:left-auto bottom-10 left-2 bg-gray-900/90 text-white text-xs px-2 py-1 rounded-md flex items-center shadow-md z-1">
         {% include "app/icons/repeat.svg" with classes="w-4 h-4 text-slate-200 mr-1" %}
         <span class="text-sm text-white">{{ media.repeats }}</span>
       </div>
     {% endif %}
 
-    <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover-tap:opacity-100{% if user.clickable_media_cards %} pointer-coarse:hidden{% endif %}">
+    <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover-tap:opacity-100{% if user.clickable_media_cards %} pointer-coarse:hidden{% endif %} z-1">
       <a href="{{ item|media_url }}" class="absolute inset-0"></a>
 
       <div class="relative flex items-center justify-center space-x-2.5">
