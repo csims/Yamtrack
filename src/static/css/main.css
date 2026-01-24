@@ -89,6 +89,8 @@
     --ease-out: cubic-bezier(0, 0, 0.2, 1);
     --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
     --animate-spin: spin 1s linear infinite;
+    --blur-sm: 8px;
+    --aspect-video: 16 / 9;
     --default-transition-duration: 150ms;
     --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     --default-font-family: var(--font-sans);
@@ -378,6 +380,9 @@
   .left-4 {
     left: calc(var(--spacing) * 4);
   }
+  .z-1 {
+    z-index: 1;
+  }
   .z-10 {
     z-index: 10;
   }
@@ -584,6 +589,9 @@
   }
   .aspect-2\/3 {
     aspect-ratio: 2/3;
+  }
+  .aspect-video {
+    aspect-ratio: var(--aspect-video);
   }
   .h-3 {
     height: calc(var(--spacing) * 3);
@@ -1071,6 +1079,9 @@
   .overflow-auto {
     overflow: auto;
   }
+  .overflow-clip {
+    overflow: clip;
+  }
   .overflow-hidden {
     overflow: hidden;
   }
@@ -1373,6 +1384,9 @@
       background-color: color-mix(in oklab, var(--color-yellow-600) 20%, transparent);
     }
   }
+  .bg-cover {
+    background-size: cover;
+  }
   .fill-current {
     fill: currentcolor;
   }
@@ -1381,6 +1395,9 @@
   }
   .fill-yellow-400 {
     fill: var(--color-yellow-400);
+  }
+  .object-contain {
+    object-fit: contain;
   }
   .object-cover {
     object-fit: cover;
@@ -1721,6 +1738,10 @@
   }
   .blur {
     --tw-blur: blur(8px);
+    filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
+  }
+  .blur-sm {
+    --tw-blur: blur(var(--blur-sm));
     filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
   }
   .drop-shadow-sm {
@@ -2585,6 +2606,11 @@
       row-gap: calc(var(--spacing) * 0);
     }
   }
+  .md\:overflow-visible {
+    @media (width >= 48rem) {
+      overflow: visible;
+    }
+  }
   .md\:overflow-y-auto {
     @media (width >= 48rem) {
       overflow-y: auto;
@@ -2598,6 +2624,11 @@
   .md\:px-0 {
     @media (width >= 48rem) {
       padding-inline: calc(var(--spacing) * 0);
+    }
+  }
+  .md\:pl-2 {
+    @media (width >= 48rem) {
+      padding-left: calc(var(--spacing) * 2);
     }
   }
   .md\:text-left {
