@@ -443,6 +443,9 @@
   .my-6 {
     margin-block: calc(var(--spacing) * 6);
   }
+  .me-1 {
+    margin-inline-end: calc(var(--spacing) * 1);
+  }
   .me-2 {
     margin-inline-end: calc(var(--spacing) * 2);
   }

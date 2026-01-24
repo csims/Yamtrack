@@ -19,11 +19,11 @@
                    class="w-10 h-10 object-cover rounded-md shrink-0"
                    src="{{ release.item.image }}">
               <div class="flex-1 min-w-0">
-                <h4 class="font-medium text-sm line-clamp-1">{{ release.item }}</h4>
+                <h4 class="font-medium text-sm">{{ release.item }} {% if release.readable_content_number %}{{ release.readable_content_number }}{% endif %}</h4>
                 <div class="flex items-center">
-                  <span class="text-xs text-gray-400 me-2">{{ release.item.media_type|media_type_readable }}</span>
+                  <span class="text-xs text-gray-400 me-1">{{ release.item.media_type|media_type_readable }}</span>
                   {% if release.readable_content_number %}
-                    <span class="text-xs text-indigo-400">{{ release.readable_content_number }} {{ release.display_time }}</span>
+                    <span class="text-xs text-indigo-400">{{ release.display_time }}</span>
                   {% endif %}
                 </div>
               </div>
