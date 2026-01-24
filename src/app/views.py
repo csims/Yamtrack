@@ -853,7 +853,7 @@ def history_modal(
 @require_http_methods(["DELETE"])
 def delete_history_record(request, media_type, history_id):
     """Delete a specific history record."""
-    if media_type in {"episodewatch", MediaTypes.EPISODE.value}:
+    if media_type == "episodewatch":
         try:
             EpisodeWatch.objects.get(
                 id=history_id,
