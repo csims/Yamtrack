@@ -1,5 +1,7 @@
 # Repository Guidelines
 
+- Ask if any task is unclear or seems unfeasible.
+
 ## Project Structure & Module Organization
 - `src/` holds the Django project and apps. Key apps include `app/`, `events/`, `lists/`, `integrations/`, and `users/`.
 - `src/config/` contains settings, Celery, and WSGI (`settings.py`, `test_settings.py`, `celery.py`).

@@ -194,6 +194,20 @@ class EventManagerTests(TestCase):
             status=Status.IN_PROGRESS.value,
         )
 
+        self.season, _ = Season.objects.get_or_create(
+            user=self.user,
+            item=self.season_item,
+            related_tv=self.tv,
+            defaults={"status": Status.IN_PROGRESS.value},
+        )
+
+        self.other_season, _ = Season.objects.get_or_create(
+            user=self.other_user,
+            item=self.season_item,
+            related_tv=self.other_tv,
+            defaults={"status": Status.IN_PROGRESS.value},
+        )
+
         self.movie = Movie.objects.create(
             user=self.user,
             item=self.movie_item,
@@ -301,3 +315,28 @@ class EventManagerTests(TestCase):
             self.past_event,
             limited_events,
         )  # Past event, but filtered by active status
+
+    def test_get_user_events_ignores_ignored_season(self):
+        """Ensure ignored seasons are excluded for the user."""
+        self.other_season.is_ignored = True
+        self.other_season.save(update_fields=["is_ignored"])
+
+        # Use fixed dates for testing
+        today = self.base_date.date()  # April 15
+        next_week = today + datetime.timedelta(days=7)  # April 22
+
+        # Get events for the user who does not have season ignored
+        events = Event.objects.get_user_events(self.user, today, next_week)
+
+        self.assertIn(self.season_event, events)
+
+        # Get events for other user who has season ignored
+        other_events = Event.objects.get_user_events(self.other_user, today, next_week)
+        print("ignored test: other_events")
+        print(other_events)
+
+        self.assertNotIn(self.season_event, other_events)
+
+        # Reset mock data after test
+        self.other_season.is_ignored = False
+        self.other_season.save(update_fields=["is_ignored"])

@@ -161,6 +161,44 @@ class TVModel(TestCase):
             datetime(2023, 6, 5, 0, 0, tzinfo=UTC),
         )
 
+    def test_tv_progress_excludes_ignored_seasons(self):
+        """Test that ignored seasons do not affect TV progress or dates."""
+        item_ignored = Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Friends",
+            image="http://example.com/image.jpg",
+            season_number=4,
+        )
+        season_ignored = Season.objects.create(
+            item=item_ignored,
+            related_tv=self.tv,
+            user=self.user,
+            status=Status.IN_PROGRESS.value,
+            is_ignored=True,
+        )
+        item_ep_ignored = Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            title="Friends",
+            image="http://example.com/image.jpg",
+            season_number=4,
+            episode_number=1,
+        )
+        EpisodeWatch.objects.create(
+            item=item_ep_ignored,
+            related_season=season_ignored,
+            watched_at=datetime(2023, 6, 12, 0, 0, tzinfo=UTC),
+        )
+
+        self.assertEqual(self.tv.progress, 4)
+        self.assertEqual(
+            self.tv.end_date,
+            datetime(2023, 6, 5, 0, 0, tzinfo=UTC),
+        )
+
     def test_tv_start_date(self):
         """Test the start_date property of the Season model."""
         self.assertEqual(

@@ -411,6 +411,75 @@ class ReloadCalendarTaskTests(TestCase):
         expected_date = datetime.datetime.fromisoformat("2008-01-20T22:00:00+00:00")
         self.assertEqual(events_bulk[0].datetime, expected_date)
 
+    @patch("events.calendar.tmdb.tv")
+    @patch("events.calendar.tmdb.tv_with_seasons")
+    @patch("events.calendar.get_tvmaze_episode_map")
+    def test_process_tv_skips_specials_override(
+        self,
+        mock_get_tvmaze_episode_map,
+        mock_tv_with_seasons,
+        mock_tv,
+    ):
+        """Test processing skips seasons flagged as specials overrides."""
+        Item.objects.create(
+            media_id="1396",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Breaking Bad",
+            image="http://example.com/breakingbad.jpg",
+            season_number=2,
+            is_specials_override=True,
+        )
+
+        mock_tv.return_value = {
+            "related": {
+                "seasons": [
+                    {"season_number": 1, "episodes": [1, 2, 3]},
+                    {"season_number": 2, "episodes": [1, 2]},
+                    {"season_number": 3, "episodes": [1]},
+                ],
+            },
+            "next_episode_season": 2,
+        }
+
+        mock_tv_with_seasons.return_value = {
+            "season/1": {
+                "image": "http://example.com/season1.jpg",
+                "season_number": 1,
+                "episodes": [
+                    {"episode_number": 1, "air_date": "2008-01-20"},
+                    {"episode_number": 2, "air_date": "2008-01-27"},
+                    {"episode_number": 3, "air_date": "2008-02-03"},
+                ],
+                "tvdb_id": "81189",
+            },
+            "season/2": {
+                "image": "http://example.com/season2.jpg",
+                "season_number": 2,
+                "episodes": [
+                    {"episode_number": 1, "air_date": "2009-01-20"},
+                    {"episode_number": 2, "air_date": "2009-01-27"},
+                ],
+                "tvdb_id": "81189",
+            },
+            "season/3": {
+                "image": "http://example.com/season3.jpg",
+                "season_number": 3,
+                "episodes": [
+                    {"episode_number": 1, "air_date": "2010-01-20"},
+                ],
+                "tvdb_id": "81189",
+            },
+        }
+
+        mock_get_tvmaze_episode_map.return_value = {}
+
+        events_bulk = []
+        process_tv(self.tv_item, events_bulk)
+
+        self.assertEqual(len(events_bulk), 4)
+        self.assertNotIn(2, {event.item.season_number for event in events_bulk})
+
     @patch("events.calendar.services.get_media_metadata")
     def test_process_other_movie(self, mock_get_media_metadata):
         """Test process_other for a movie."""

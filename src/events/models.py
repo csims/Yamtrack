@@ -75,6 +75,15 @@ class EventManager(models.Manager):
             datetime__lte=end_datetime,
         ).select_related("item")
 
+        ignored_season_items = Season.objects.filter(
+            user=user,
+            is_ignored=True,
+        ).values("item_id")
+        queryset = queryset.exclude(
+            item__media_type=MediaTypes.SEASON.value,
+            item_id__in=ignored_season_items,
+        )
+
         return self.sort_with_sentinel_last(queryset)
 
     def _build_tv_query(self, user, enabled_types):
@@ -108,6 +117,7 @@ class EventManager(models.Manager):
                 status__in=INACTIVE_TRACKING_STATUSES,
                 item__season_number__gt=0,
                 item__is_specials_override=False,
+                is_ignored=False,
             )
             .values("item__media_id")
             .annotate(min_season=Min("item__season_number"))
