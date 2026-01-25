@@ -423,6 +423,56 @@ def sync_metadata(request, source, media_type, media_id, season_number=None):
     return helpers.redirect_back(request)
 
 
+@require_POST
+def toggle_season_ignore(request, source, media_id, season_number):
+    """Toggle the ignored flag for a season for the current user."""
+    season_item = Item.objects.filter(
+        media_id=media_id,
+        source=source,
+        media_type=MediaTypes.SEASON.value,
+        season_number=season_number,
+    ).first()
+
+    if season_item is None:
+        tv_with_seasons_metadata = services.get_media_metadata(
+            "tv_with_seasons",
+            media_id,
+            source,
+            [season_number],
+        )
+        season_metadata = tv_with_seasons_metadata[f"season/{season_number}"]
+        season_item = Item.objects.create(
+            media_id=media_id,
+            source=source,
+            media_type=MediaTypes.SEASON.value,
+            season_number=season_number,
+            title=tv_with_seasons_metadata["title"],
+            image=season_metadata["image"],
+        )
+
+    season, _ = Season.objects.get_or_create(
+        user=request.user,
+        item=season_item,
+        defaults={"status": Status.PLANNING.value},
+    )
+    season.is_ignored = not season.is_ignored
+    season.save(update_fields=["is_ignored"])
+
+    context = {
+        "media": {
+            "source": source,
+            "media_id": media_id,
+            "season_number": season_number,
+        },
+        "current_instance": season,
+    }
+
+    if request.headers.get("HX-Request"):
+        return render(request, "app/components/season_ignore_toggle.html", context)
+
+    return helpers.redirect_back(request)
+
+
 @require_GET
 def track_modal(
     request,

@@ -812,6 +812,9 @@
   .flex-1 {
     flex: 1;
   }
+  .flex-6\/12 {
+    flex: calc(6/12 * 100%);
+  }
   .flex-shrink-0 {
     flex-shrink: 0;
   }
@@ -2055,6 +2058,13 @@
       }
     }
   }
+  .hover\:bg-gray-500 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--color-gray-500);
+      }
+    }
+  }
   .hover\:bg-gray-600 {
     &:hover {
       @media (hover: hover) {
@@ -2545,6 +2555,11 @@
   .md\:max-w-\[250px\] {
     @media (width >= 48rem) {
       max-width: 250px;
+    }
+  }
+  .md\:flex-none {
+    @media (width >= 48rem) {
+      flex: none;
     }
   }
   .md\:-translate-x-1\/2 {

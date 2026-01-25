@@ -15,7 +15,7 @@ This document captures the agreed decisions and a proposed implementation breakd
 ## Open questions (resolve before implementation)
 
 Resolved:
-- Specials detection: `season_number == 0` OR admin-only `is_specials_override` flag.
+- Specials detection: `season_number == 0` OR admin-only `Item.is_specials_override` flag.
 - Episode air date: missing/future air dates are excluded from totals and from bulk “watch on air date”. Manual watches are allowed but do not count toward completion until a valid air date exists.
 - Admin-only `is_hidden_override` on Item. If this flag is set, the item should be treated as non-existent (hidden from UI, excluded from totals and any bulk operations). Also applies to episodes.
 
@@ -96,6 +96,7 @@ Caches are derived from `EpisodeWatch` and should be recomputed on writes or via
 
 Ignored season rule:
 - Ignored seasons are excluded from the denominator for TV progress and remaining counts.
+- Ignored seasons are filtered per-user when rendering calendar/events and In Progress lists.
 
 Air date rule:
 - Episodes with missing/future air dates are excluded from totals and from completion counts, even if manually watched, until a valid air date exists.
@@ -139,7 +140,7 @@ Engaged rule:
 2) **Schema + migrations**
    - (DONE) Add `EpisodeWatch` model (or adapt existing `Episode`).
    - (DONE) Add season ignore flag on Season (per user, user-facing).
-   - (DONE) Add season specials override flag (sitewide, admin-only).
+   - (DONE) Add season specials override flag on Item (sitewide, admin-only).
    - (DONE) Add hidden override on Item (sitewide, admin-only).
    - Add optional progress cache fields/tables.
    - (DONE) Backfill watch events from existing data.
@@ -174,6 +175,8 @@ Engaged rule:
 
 - Added EpisodeWatch model and schema/data migrations: `src/app/migrations/0054_add_episodewatch_and_overrides.py`, `src/app/migrations/0055_backfill_episodewatch.py`.
 - Added admin-only overrides and user-facing ignore fields in `src/app/models.py`.
+- Moved `is_specials_override` to Item and updated calendar/progress logic to respect it.
+- Added season ignore toggle endpoint and UI on season details page.
 - Switched watch creation and progress/date calculations to EpisodeWatch in `src/app/models.py`.
 - Updated watch form + episode save flow in `src/app/forms.py` and `src/app/views.py`.
 - Updated episode history display to use `watched_at` in `src/templates/app/components/fill_track_episode.html` and `src/templates/app/media_details.html`.
@@ -190,7 +193,7 @@ Engaged rule:
 
 1) Schema migration:
    - Create `EpisodeWatch` model + indexes.
-   - Add admin-only overrides: `Season.is_specials_override`, `Item.is_hidden_override`.
+   - Add admin-only overrides: `Item.is_specials_override`, `Item.is_hidden_override`.
    - Add user-facing `Season.is_ignored`.
 2) Data migration:
    - For each existing `Episode`, create `EpisodeWatch` with:

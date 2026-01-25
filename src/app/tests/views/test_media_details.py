@@ -5,7 +5,9 @@ from django.test import TestCase
 from django.urls import reverse
 
 from app.models import (
+    Item,
     MediaTypes,
+    Season,
     Sources,
 )
 
@@ -72,6 +74,7 @@ class MediaDetailsViewTests(TestCase):
                 "media_type": MediaTypes.SEASON.value,
                 "source": Sources.TMDB.value,
                 "image": "http://example.com/season.jpg",
+                "season_number": 1,
                 "episodes": [],
             },
         }
@@ -115,4 +118,45 @@ class MediaDetailsViewTests(TestCase):
             [1],
         )
 
+    def test_toggle_season_ignore(self):
+        """Test toggling the season ignore flag."""
+        item = Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Test TV Show",
+            image="http://example.com/season.jpg",
+            season_number=1,
+        )
 
+        response = self.client.post(
+            reverse(
+                "toggle_season_ignore",
+                kwargs={
+                    "source": Sources.TMDB.value,
+                    "media_id": "1668",
+                    "season_number": 1,
+                },
+            ),
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        season = Season.objects.get(user=self.user, item=item)
+        self.assertTrue(season.is_ignored)
+
+        response = self.client.post(
+            reverse(
+                "toggle_season_ignore",
+                kwargs={
+                    "source": Sources.TMDB.value,
+                    "media_id": "1668",
+                    "season_number": 1,
+                },
+            ),
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        season.refresh_from_db()
+        self.assertFalse(season.is_ignored)

@@ -374,7 +374,7 @@
 
       {# Actions #}
       <h2 class="text-xl font-bold mb-4">Actions</h2>
-      <div class="bg-[#2a2f35] p-4 md:p-2 lg:p-4 rounded-lg flex items-center justify-center gap-x-5 md:gap-x-2 lg:gap-x-5 mb-6">
+      <div class="bg-[#2a2f35] p-4 md:p-2 lg:p-4 rounded-lg flex items-center justify-center gap-x-5 md:gap-x-2 lg:gap-x-5">
         {# Custom Lists #}
         <div x-data="{ listsOpen: false }">
           <button class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition duration-300 cursor-pointer"
@@ -433,12 +433,18 @@
         </button>
       </div>
 
+      {% if media.media_type == MediaTypes.SEASON.value %}
+        <div class="mt-4 mb-6">
+          {% include "app/components/season_ignore_toggle.html" with media=media current_instance=current_instance %}
+        </div>
+      {% endif %}
+
       {# Media Details #}
       <h2 class="text-xl font-bold mb-4">Details</h2>
-      <div class="bg-[#2a2f35] p-4 rounded-lg text-center md:text-start">
+      <div class="bg-[#2a2f35] p-4 rounded-lg text-center md:text-start flex md:block flex-wrap">
         {% if media.details.items %}
           {% for key, value in media.details.items %}
-            <div class="mb-4">
+            <div class="mb-4 flex-6/12 md:flex-none">
               <h3 class="text-sm font-semibold text-gray-400">{{ key|no_underscore|upper }}</h3>
               {% if value|is_list %}
                 {% for item in value %}<p class="text-gray-200">{{ item }}</p>{% endfor %}
@@ -447,14 +453,14 @@
               {% endif %}
             </div>
           {% endfor %}
-          <div>
-            <h3 class="text-sm font-semibold text-gray-400">Source</h3>
+          <div class="mb-4 flex-6/12 md:flex-none">
+            <h3 class="text-sm font-semibold text-gray-400">SOURCE</h3>
             <a href="{{ media.source_url }}"
                class="text-gray-200 hover:text-indigo-500 transition-colors duration-200"
                target="_blank">{{ media.source|source_readable }}</a>
           </div>
           {% if media.external_links %}
-            <div class="mt-4">
+            <div class="mb-4 flex-6/12 md:flex-none">
               <h3 class="text-sm font-semibold text-gray-400">EXTERNAL LINKS</h3>
               {% for name, url in media.external_links.items %}
                 <a href="{{ url }}"
