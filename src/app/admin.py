@@ -42,6 +42,7 @@ class EpisodeWatchAdmin(admin.ModelAdmin):
 
     @admin.display(description="User")
     def episode_user(self, obj):
+        """To display the user for the related season."""
         return obj.related_season.user
 
 

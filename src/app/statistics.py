@@ -16,9 +16,9 @@ from django.utils import timezone
 
 from app import config
 from app.models import (
-    EpisodeWatch,
     TV,
     BasicMedia,
+    EpisodeWatch,
     MediaManager,
     MediaTypes,
     Season,

@@ -332,8 +332,6 @@ class EventManagerTests(TestCase):
 
         # Get events for other user who has season ignored
         other_events = Event.objects.get_user_events(self.other_user, today, next_week)
-        print("ignored test: other_events")
-        print(other_events)
 
         self.assertNotIn(self.season_event, other_events)
 

@@ -20,9 +20,9 @@ from app import config, helpers, history_processor
 from app import statistics as stats
 from app.forms import EpisodeForm, ManualItemForm, get_form_class
 from app.models import (
-    EpisodeWatch,
     TV,
     BasicMedia,
+    EpisodeWatch,
     Item,
     MediaTypes,
     Season,

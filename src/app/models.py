@@ -350,9 +350,10 @@ class MediaManager(models.Manager):
             )
 
         if sort_filter == "progress":
-            # Annotate with the sum of episodes watched (excluding season 0 and specials overrides)
+            # Annotate with the sum of episodes watched (excluding
+            # season 0 and specials overrides)
             queryset = queryset.annotate(
-                # Count episodes in regular seasons (season_number > 0 and excluding specials overrides)
+                # Count episodes in non-specials seasons
                 calculated_progress=models.Count(
                     "seasons__episode_watches",
                     filter=models.Q(

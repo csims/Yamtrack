@@ -1,20 +1,14 @@
 import logging
 
-from django.apps import apps
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import (
-    Case,
     Count,
-    DecimalField,
     F,
     OuterRef,
     Q,
     Subquery,
-    Value,
-    When,
 )
-from django.db.models.functions import Coalesce
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
@@ -24,6 +18,7 @@ from app.models import Item, MediaManager, MediaTypes
 from app.providers import services
 from lists.forms import CustomListForm
 from lists.models import CustomList, CustomListItem
+from lists.sorting_utils import apply_rating_sort, sort_field
 from users.models import ListDetailSortChoices, ListSortChoices, MediaStatusChoices
 
 logger = logging.getLogger(__name__)
@@ -157,14 +152,6 @@ def list_detail(request, list_id):
         items = items.filter(id__in=media_by_item_id.keys())
 
     # Apply sorting
-    def sort_field(field_name, direction, *, nulls_last=None, nulls_first=None):
-        order = F(field_name)
-        last = True if nulls_last else None
-        first = True if nulls_first else None
-        if direction == "asc":
-            return order.asc(nulls_last=last, nulls_first=first)
-        return order.desc(nulls_last=last, nulls_first=first)
-
     sort_mapping = {
         "date_added": [
             sort_field("customlistitem__date_added", params["sort_dir"]),
@@ -177,41 +164,10 @@ def list_detail(request, list_id):
         "media_type": [sort_field("media_type", params["sort_dir"])],
     }
     if params["sort_by"] == "rating":
-        score_cases = []
-        score_field = DecimalField(max_digits=3, decimal_places=1)
-
-        for media_type in MediaTypes.values:
-            if media_type == MediaTypes.EPISODE.value:
-                continue
-
-            model = apps.get_model("app", media_type)
-            score_cases.append(
-                When(
-                    media_type=media_type,
-                    then=Subquery(
-                        model.objects.filter(
-                            item=OuterRef("pk"),
-                            user=request.user,
-                        )
-                        .values("score")[:1],
-                    ),
-                ),
-            )
-
-        items = items.annotate(
-            user_score=Coalesce(
-                Case(
-                    *score_cases,
-                    default=Value(0, output_field=score_field),
-                    output_field=score_field,
-                ),
-                Value(0, output_field=score_field),
-            ),
-        ).order_by(
-            sort_field("user_score", params["sort_dir"]),
-            F("title").asc(nulls_last=True),
-            F("season_number").asc(nulls_first=True),
-            F("episode_number").asc(nulls_first=True),
+        items = apply_rating_sort(
+            items,
+            user=request.user,
+            direction=params["sort_dir"],
         )
     else:
         items = items.order_by(

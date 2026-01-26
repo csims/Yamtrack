@@ -440,7 +440,7 @@ class ListDetailViewTests(TestCase):
             item=self.tv_item,
             status=Status.IN_PROGRESS.value,
             user=self.user,
-            score=6
+            score=6,
         )
 
         Anime.objects.create(
