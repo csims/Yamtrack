@@ -36,6 +36,18 @@ from users.models import HomeSortChoices, MediaSortChoices, MediaStatusChoices
 logger = logging.getLogger(__name__)
 
 
+def history_delete_media_type(media_type):
+    """Return the delete-target type for history entries."""
+    if media_type == MediaTypes.EPISODE.value:
+        return "episodewatch"
+    return media_type
+
+
+def is_episode_watch_type(media_type):
+    """Return whether the media type maps to EpisodeWatch rows."""
+    return media_type in {MediaTypes.EPISODE.value, "episodewatch"}
+
+
 @require_GET
 def home(request):
     """Home page with media items in progress."""
@@ -601,7 +613,7 @@ def media_delete(request):
     model = apps.get_model(app_label="app", model_name=media_type)
 
     try:
-        if media_type == "episodewatch":
+        if is_episode_watch_type(media_type):
             media = EpisodeWatch.objects.get(
                 id=instance_id,
                 related_season__user=request.user,
@@ -725,18 +737,22 @@ def create_entry(request):
         logger.info("%s was deleted due to media form validation failure", item)
         return redirect("create_entry")
 
-    # Save the media instance
-    if hasattr(media_form.instance, "user"):
-        media_form.instance.user = request.user
-    media_form.instance.item = item
+    # Update the media instance
+    media = media_form.save(commit=False)
+    # Certain media types (like EpisodeWatch / Episode) don't have a user FK.
+    if hasattr(media, "user_id"):
+        # Assign FK id directly to avoid lazy user resolution in tests.
+        media.user_id = request.user.pk
+    media.item = item
 
     # Handle relationships based on media type
     if item.media_type == MediaTypes.SEASON.value:
-        media_form.instance.related_tv = form.cleaned_data["parent_tv"]
+        media.related_tv = form.cleaned_data["parent_tv"]
     elif item.media_type == MediaTypes.EPISODE.value:
-        media_form.instance.related_season = form.cleaned_data["parent_season"]
+        media.related_season = form.cleaned_data["parent_season"]
 
-    media_form.save()
+    # Save the media instance
+    media.save()
 
     # Success message
     msg = f"{item} added successfully."
@@ -819,7 +835,7 @@ def history_modal(
                 "app/components/fill_history.html",
                 {
                     "media_type": media_type,
-                    "media_type_for_delete": "episodewatch",
+                    "media_type_for_delete": history_delete_media_type(media_type),
                     "timeline": [],
                     "total_medias": 0,
                     "return_url": request.GET["return_url"],
@@ -859,7 +875,7 @@ def history_modal(
             "app/components/fill_history.html",
             {
                 "media_type": media_type,
-                "media_type_for_delete": "episodewatch",
+                "media_type_for_delete": history_delete_media_type(media_type),
                 "timeline": timeline_entries,
                 "total_medias": 1,
                 "return_url": request.GET["return_url"],
@@ -892,7 +908,7 @@ def history_modal(
         "app/components/fill_history.html",
         {
             "media_type": media_type,
-            "media_type_for_delete": media_type,
+            "media_type_for_delete": history_delete_media_type(media_type),
             "timeline": timeline_entries,
             "total_medias": total_medias,
             "return_url": request.GET["return_url"],
@@ -903,7 +919,7 @@ def history_modal(
 @require_http_methods(["DELETE"])
 def delete_history_record(request, media_type, history_id):
     """Delete a specific history record."""
-    if media_type == "episodewatch":
+    if is_episode_watch_type(media_type):
         try:
             EpisodeWatch.objects.get(
                 id=history_id,
