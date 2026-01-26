@@ -17,7 +17,7 @@
 - `docker-compose up -d` starts the Docker deployment stack (SQLite by default).
 
 ## Coding Style & Naming Conventions
-- Python targets 3.12; follow standard 4-space indentation and Django conventions.
+- Python targets 3.14.x; follow standard 4-space indentation and Django conventions.
 - Linting uses Ruff (`ruff check .`) with a broad rule set and local ignores in `pyproject.toml`.
 - Templates are formatted with DjLint (2-space indent per `pyproject.toml`).
 - Use snake_case for modules and tests; Django apps and templates follow existing naming patterns.

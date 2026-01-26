@@ -1,4 +1,4 @@
-FROM python:3.12-alpine3.21
+FROM python:3.14-alpine3.23
 
 # https://stackoverflow.com/questions/58701233/docker-logs-erroneously-appears-empty-until-container-stops
 ENV PYTHONUNBUFFERED=1

@@ -1,13 +1,13 @@
 services:
   yamtrack:
     container_name: yamtrack
-    image: ghcr.io/fuzzygrim/yamtrack
+    image: ghcr.io/csims/yamtrack
     restart: unless-stopped
     depends_on:
       - db
       - redis
     environment:
-      - TZ=Europe/Berlin
+      - TZ=America/New_York
       - SECRET=longstring
       - REDIS_URL=redis://redis:6379
       - DB_HOST=db

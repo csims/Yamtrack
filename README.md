@@ -1,16 +1,15 @@
 # Yamtrack
 
-![App Tests](https://github.com/FuzzyGrim/Yamtrack/actions/workflows/app-tests.yml/badge.svg)
-![Docker Image](https://github.com/FuzzyGrim/Yamtrack/actions/workflows/docker-image.yml/badge.svg)
-![CodeFactor](https://www.codefactor.io/repository/github/fuzzygrim/yamtrack/badge)
-![Codecov](https://codecov.io/github/FuzzyGrim/Yamtrack/branch/dev/graph/badge.svg?token=PWUG660120)
+This is a fork of [FuzzyGrim's Yamtrack](https://github.com/FuzzyGrim/Yamtrack) - go show support there!
+
+> [!WARNING]
+> I forked this for personal use to add features I wanted. There's a fair amount of vibe coding going on here since I'm not really intending this to be used by anyone else.
+
+![App Tests](https://github.com/csims/Yamtrack/actions/workflows/app-tests.yml/badge.svg)
+![Docker Image](https://github.com/csims/Yamtrack/actions/workflows/docker-image.yml/badge.svg)
 ![GitHub](https://img.shields.io/badge/license-AGPL--3.0-blue)
 
 Yamtrack is a self hosted media tracker for movies, tv shows, anime, manga, video games and books.
-
-## 🚀 Demo
-
-You can try the app at [yamtrack.fuzzygrim.com](https://yamtrack.fuzzygrim.com) using the username `demo` and password `demo`.
 
 ## ✨ Features
 
@@ -28,32 +27,6 @@ You can try the app at [yamtrack.fuzzygrim.com](https://yamtrack.fuzzygrim.com) 
 - 🦀 Integration with [Jellyfin](https://jellyfin.org/), [Plex](https://plex.tv/) and [Emby](https://emby.media/) to automatically track new media watched.
 - 📥 Import from [Trakt](https://trakt.tv/), [Simkl](https://simkl.com/), [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/) and [Kitsu](https://kitsu.app/) with support for periodic automatic imports.
 - 📊 Export all your tracked media to a CSV file and import it back.
-
-## 📱 Screenshots
-
-| Homepage                                                                                       | Calendar                                                                                    |
-| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| <img src="https://cdn.fuzzygrim.com/file/fuzzygrim/yamtrack/homepage.png?v2" alt="Homepage" /> | <img src="https://cdn.fuzzygrim.com/file/fuzzygrim/yamtrack/calendar.png" alt="calendar" /> |
-
-| Media List Grid                                                                                    | Media List Table                                                                                     |
-| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| <img src="https://cdn.fuzzygrim.com/file/fuzzygrim/yamtrack/medialist_grid.png" alt="List Grid" /> | <img src="https://cdn.fuzzygrim.com/file/fuzzygrim/yamtrack/medialist_table.png" alt="List Table" /> |
-
-| Media Details                                                                                         | Tracking                                                                                    |
-| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| <img src="https://cdn.fuzzygrim.com/file/fuzzygrim/yamtrack/media_details.png" alt="Media Details" /> | <img src="https://cdn.fuzzygrim.com/file/fuzzygrim/yamtrack/tracking.png" alt="Tracking" /> |
-
-| Season Details                                                                                          | Tracking Episodes                                                                                            |
-| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| <img src="https://cdn.fuzzygrim.com/file/fuzzygrim/yamtrack/season_details.png" alt="Season Details" /> | <img src="https://cdn.fuzzygrim.com/file/fuzzygrim/yamtrack/tracking_episode.png" alt="Tracking Episodes" /> |
-
-| Lists                                                                                 | Statistics                                                                                      |
-| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| <img src="https://cdn.fuzzygrim.com/file/fuzzygrim/yamtrack/lists.png" alt="Lists" /> | <img src="https://cdn.fuzzygrim.com/file/fuzzygrim/yamtrack/statistics.png" alt="Statistics" /> |
-
-| Create Manual Entries                                                                                         | Import Data                                                                                       |
-| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| <img src="https://cdn.fuzzygrim.com/file/fuzzygrim/yamtrack/create_custom.png" alt="Create Manual Entries" /> | <img src="https://cdn.fuzzygrim.com/file/fuzzygrim/yamtrack/import_data.png" alt="Import Data" /> |
 
 ## 🐳 Installing with Docker
 
@@ -91,14 +64,8 @@ For detailed information on environment variables, please refer to the [Environm
 Clone the repository and change directory to it.
 
 ```bash
-git clone https://github.com/FuzzyGrim/Yamtrack.git
+git clone https://github.com/csims/Yamtrack.git
 cd Yamtrack
-```
-
-Install tailwind:
-
-```bash
-npm install tailwindcss @tailwindcss/cli
 ```
 
 Install Redis or spin up a bare redis container:
@@ -122,7 +89,8 @@ DEBUG=True
 Then run the following commands.
 
 ```bash
-python -m pip install -U -r requirements-dev.txt
+npm install
+python -m pip install -U -r requirements-dev.txt && lefthook install
 pushd src && python manage.py migrate && popd
 honcho start
 ```
@@ -142,29 +110,3 @@ To run tests:
 ```bash
 pytest src
 ```
-
-## 💪 Support the Project
-
-There are many ways you can support Yamtrack's development:
-
-### ⭐ Star the Project
-
-The simplest way to show your support is to star the repository on GitHub. It helps increase visibility and shows appreciation for the work.
-
-### 🐛 Bug Reports
-
-Found a bug? Open an [issue](https://github.com/FuzzyGrim/Yamtrack/issues) on GitHub with detailed steps to reproduce it. Quality bug reports are incredibly valuable for improving stability.
-
-### 💡 Feature Suggestions
-
-Have ideas for new features? Share them through [GitHub issues](https://github.com/FuzzyGrim/Yamtrack/issues). Your feedback helps shape the future of Yamtrack.
-
-### 🧪 Contributing
-
-Pull requests are welcome! Whether it's fixing typos, improving documentation, or adding new features, your contributions help make Yamtrack better for everyone.
-
-### ☕ Donate
-
-If you'd like to support the project financially:
-
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/fuzzygrim)

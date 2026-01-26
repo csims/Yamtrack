@@ -12,6 +12,7 @@ db.sqlite3-bak*
 CLAUDE.md
 requests.http
 TODO.txt
+coverage.xml
 
 # npm
 node_modules

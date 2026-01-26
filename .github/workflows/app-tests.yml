@@ -3,57 +3,37 @@ name: App Tests
 on:
   pull_request:
     paths-ignore:
-      - ".github/workflows/**"
+      - ".github/**"
+      - "agent-docs/**"
+      - ".vscode/**"
   push:
     branches:
-      - main
       - dev
+      - release
+    paths-ignore:
+      - ".github/**"
+      - "agent-docs/**"
+      - ".vscode/**"
   workflow_dispatch:
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
+
+env:
+  python-version: "3.14"
 
 jobs:
-  check-workflow-changes:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Check for workflow modifications
-        uses: dorny/paths-filter@v3
-        id: changes
-        with:
-          filters: |
-            workflows:
-              - '.github/workflows/**'
-      - name: Fail if workflows were modified
-        if: steps.changes.outputs.workflows == 'true'
-        run: |
-          echo "::error::Workflow files were modified in this PR."
-          exit 1
-
   test:
-    needs: check-workflow-changes
-    if: always()
     runs-on: ubuntu-latest
-    strategy:
-      max-parallel: 4
-      matrix:
-        python-version: ["3.12"]
     steps:
-      - name: Check workflow verification result
-        if: |
-          github.event_name == 'pull_request_target' && 
-          needs.check-workflow-changes.result == 'failure'
-        run: exit 1
-
       - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ env.python-version }}
 
       - name: Install Dependencies
         run: |
@@ -85,7 +65,11 @@ jobs:
           coverage report
           coverage xml
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+      - name: Publish coverage
+        uses: orgoro/coverage@7dbd48c7f7ed09df337ff40058340c85bc93cb3d
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          coverageFile: "coverage.xml"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          thresholdAll: 0.8
+          thresholdNew: 0.9
+          thresholdModified: 0.5
