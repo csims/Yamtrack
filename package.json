@@ -1,6 +1,13 @@
 {
+  "scripts": {
+    "tailwind": "tailwindcss -i ./src/static/css/input.css -o ./src/static/css/main.css",
+    "tailwind:watch": "tailwindcss -i ./src/static/css/input.css -o ./src/static/css/main.css --watch"
+  },
   "dependencies": {
     "@tailwindcss/cli": "^4.1.18",
     "tailwindcss": "^4.1.18"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

@@ -1,0 +1,4 @@
+pre-commit:
+  jobs:
+    - name: ruff
+      run: ruff check src --fix
