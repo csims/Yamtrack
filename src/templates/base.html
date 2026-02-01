@@ -2,7 +2,7 @@
 {% load app_tags %}
 
 <!DOCTYPE html>
-<html lang="en" class="scheme-dark bg-mybg-2">
+<html lang="en" class="scheme-dark bg-base-200">
   <head>
     {# Required meta tags #}
     <meta charset="UTF-8">
@@ -56,7 +56,7 @@
   <body>
     {% block body %}
       {# Main container for the layout #}
-      <div class="flex min-h-screen bg-mybg-2 text-gray-100"
+      <div class="flex min-h-screen bg-base-200 text-gray-100"
            x-data="{ isMobileMenuOpen: false }">
 
         {# Mobile menu overlay #}
@@ -65,12 +65,12 @@
              @click="isMobileMenuOpen = false"></div>
 
         {# Sidebar #}
-        <aside class="fixed top-0 left-0 z-40 h-screen w-64 bg-mybg-3 transform transition-transform duration-200 ease-out border-r border-mybg-6 -translate-x-full lg:translate-x-0 lg:sticky flex flex-col"
+        <aside class="fixed top-0 left-0 z-40 h-screen w-64 bg-base-300 transform transition-transform duration-200 ease-out border-r border-base-100 -translate-x-full lg:translate-x-0 lg:sticky flex flex-col"
             x-data="{ touchstartX: 0, touchendX: 0 }"
             @touchstart="touchstartX = $event.changedTouches[0].screenX"
             @touchend="touchendX = $event.changedTouches[0].screenX; if (touchendX < touchstartX - 50) isMobileMenuOpen = false;"
             :class="isMobileMenuOpen ? 'translate-x-0' : ''">
-          <div class="h-16 border-b border-mybg-6 flex items-center px-4 lg:px-6 gap-4">
+          <div class="h-16 border-b border-base-100 flex items-center px-4 lg:px-6 gap-4">
             <button @click="isMobileMenuOpen = false"
                     class="h-16 lg:hidden text-gray-400"
                     aria-label="Close sidebar">
@@ -83,7 +83,7 @@
             <ul class="space-y-1 mb-6">
               <li>
                 <a href="{% url 'home' %}"
-                   class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == "/" %}text-white bg-mybg-6{% else %}text-gray-400 hover:text-white hover:bg-mybg-7{% endif %}">
+                   class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == "/" %}text-white bg-base-100{% else %}text-gray-400 hover:text-white hover:bg-base-200{% endif %}">
                   {% if request.path|str_equals:"/" %}
                     {% include "app/icons/house.svg" with classes="w-5 h-5 text-indigo-400 " %}
 
@@ -99,7 +99,7 @@
               {% for item in sidebar_media_types %}
                 <li>
                   <a href="{% url 'medialist' media_type=item.media_type %}"
-                     class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if media_type == item.media_type %}text-white bg-mybg-6{% else %}text-gray-400 hover:text-white hover:bg-mybg-7{% endif %}">
+                     class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if media_type == item.media_type %}text-white bg-base-100{% else %}text-gray-400 hover:text-white hover:bg-base-200{% endif %}">
                     {% icon item.media_type is_active=media_type|str_equals:item.media_type %}
                     <span>{{ item.display_name }}</span>
                   </a>
@@ -107,12 +107,12 @@
               {% endfor %}
             </ul>
 
-            <div class="border-t border-mybg-6 pt-4">
+            <div class="border-t border-base-100 pt-4">
               <ul class="space-y-1">
                 {% url 'create_entry' as create_entry_url %}
                 <li>
                   <a href="{{ create_entry_url }}"
-                     class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == create_entry_url %}text-white bg-mybg-6{% else %}text-gray-400 hover:text-white hover:bg-mybg-7{% endif %}">
+                     class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == create_entry_url %}text-white bg-base-100{% else %}text-gray-400 hover:text-white hover:bg-base-200{% endif %}">
                     {% if request.path|str_equals:create_entry_url %}
                       {% include "app/icons/circle-plus.svg" with classes="w-5 h-5 text-indigo-400 " %}
 
@@ -127,7 +127,7 @@
                 {% url 'statistics' as statistics_url %}
                 <li>
                   <a href="{{ statistics_url }}"
-                     class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == statistics_url %}text-white bg-mybg-6{% else %}text-gray-400 hover:text-white hover:bg-mybg-7{% endif %}">
+                     class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == statistics_url %}text-white bg-base-100{% else %}text-gray-400 hover:text-white hover:bg-base-200{% endif %}">
                     {% if request.path|str_equals:statistics_url %}
                       {% include "app/icons/bars-pyramid.svg" with classes="w-5 h-5 text-indigo-400 " %}
 
@@ -142,7 +142,7 @@
                 {% url 'lists' as lists_url %}
                 <li>
                   <a href="{{ lists_url }}"
-                     class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == lists_url %}text-white bg-mybg-6{% else %}text-gray-400 hover:text-white hover:bg-mybg-7{% endif %}">
+                     class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == lists_url %}text-white bg-base-100{% else %}text-gray-400 hover:text-white hover:bg-base-200{% endif %}">
                     {% if request.path|str_equals:lists_url %}
                       {% include "app/icons/folder-plus.svg" with classes="w-5 h-5 text-indigo-400 " %}
 
@@ -157,7 +157,7 @@
                 {% url 'calendar' as calendar_url %}
                 <li>
                   <a href="{{ calendar_url }}"
-                     class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == calendar_url %}text-white bg-mybg-6{% else %}text-gray-400 hover:text-white hover:bg-mybg-7{% endif %}">
+                     class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == calendar_url %}text-white bg-base-100{% else %}text-gray-400 hover:text-white hover:bg-base-200{% endif %}">
                     {% if request.path|str_equals:calendar_url %}
                       {% include "app/icons/calendar.svg" with classes="w-5 h-5 text-indigo-400 " %}
 
@@ -172,7 +172,7 @@
             </div>
           </nav>
 
-          <div class="p-4 border-t border-mybg-6 mt-auto">
+          <div class="p-4 border-t border-base-100 mt-auto">
             <div class="space-y-2">
               {% url 'account' as account_url %}
               {% url 'notifications' as notifications_url %}
@@ -181,7 +181,7 @@
               {% url 'import_data' as import_url %}
               {% url 'export_data' as export_url %}
               <a href="{{ account_url }}"
-                 class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == account_url or request.path == notifications_url or request.path == sidebar_url or request.path == integrations_url or request.path == import_url or request.path == export_url %}text-white bg-mybg-6{% else %}text-gray-400 hover:text-white hover:bg-mybg-7{% endif %}">
+                 class="flex items-center space-x-3 px-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == account_url or request.path == notifications_url or request.path == sidebar_url or request.path == integrations_url or request.path == import_url or request.path == export_url %}text-white bg-base-100{% else %}text-gray-400 hover:text-white hover:bg-base-200{% endif %}">
                 {% if request.path == account_url or request.path == notifications_url or request.path == sidebar_url or request.path == integrations_url or request.path == import_url or request.path == export_url %}
                   {% include "app/icons/settings.svg" with classes="w-5 h-5 text-indigo-400 " %}
 
@@ -195,7 +195,7 @@
               <form method="post" action="{% url 'account_logout' %}" class="w-full">
                 {% csrf_token %}
                 <button type="submit"
-                        class="w-full flex items-center space-x-3 px-4 py-2 rounded-md text-gray-400 hover:bg-mybg-7 hover:text-white transition-colors duration-200 text-sm cursor-pointer">
+                        class="w-full flex items-center space-x-3 px-4 py-2 rounded-md text-gray-400 hover:bg-base-200 hover:text-white transition-colors duration-200 text-sm cursor-pointer">
                   {% include "app/icons/logout.svg" with classes="w-5 h-5" %}
 
                   <span>Logout</span>
@@ -208,7 +208,7 @@
         {# Main content #}
         <div class="flex-1 flex flex-col min-h-screen">
           {# Top bar #}
-          <div class="sticky top-0 z-10 bg-mybg-3 border-b border-mybg-6 shadow-md">
+          <div class="sticky top-0 z-10 bg-base-300 border-b border-base-100 shadow-md">
             <div class="px-4">
               <div class="flex items-center justify-between lg:justify-center h-16">
                 {# Mobile: sidebar toggle button #}
@@ -237,7 +237,7 @@
                                name="q"
                                value="{{ request.GET.q }}"
                                :placeholder="getPlaceholder()"
-                               class="w-full py-2 pl-10 pr-4 text-sm text-gray-300 bg-mybg-8 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-inset placeholder-gray-500">
+                               class="w-full py-2 pl-10 pr-4 text-sm text-gray-300 bg-base-100 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-inset placeholder-gray-500">
                         <button type="submit"
                                 class="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors duration-200 focus:outline-none cursor-pointer">
                           {% include "app/icons/magnifying-glass.svg" with classes="w-5 h-5" %}
@@ -251,7 +251,7 @@
                       <button type="button"
                               @click="isOpen = !isOpen"
                               @click.away="isOpen = false"
-                              class="flex items-center justify-between max-w-[110px] sm:max-w-none sm:w-32 px-2 sm:px-4 py-2 text-sm text-gray-300 bg-mybg-8 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-inset hover:bg-mybg-10 transition-colors duration-200 cursor-pointer">
+                              class="flex items-center justify-between max-w-[110px] sm:max-w-none sm:w-32 px-2 sm:px-4 py-2 text-sm text-gray-300 bg-base-100 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-inset hover:bg-base-muted-200 transition-colors duration-200 cursor-pointer">
                         <span class="truncate sm:whitespace-normal" x-text="selectedType.display"></span>
                         {% include "app/icons/chevron-down.svg" with classes="w-4 h-4 ml-2" %}
 
@@ -265,10 +265,10 @@
                           x-transition:leave="transition ease-in duration-75"
                           x-transition:leave-start="transform opacity-100 scale-100"
                           x-transition:leave-end="transform opacity-0 scale-95"
-                          class="absolute z-20 py-1 mt-12 overflow-auto text-sm text-gray-300 bg-mybg-10 rounded-md shadow-lg right-0 w-32">
+                          class="absolute z-20 py-1 mt-12 overflow-auto text-sm text-gray-300 bg-base-100 rounded-md shadow-lg right-0 w-32">
                         <template x-for="type in mediaTypes" :key="type.value">
                           <li @click="selectedType = type; isOpen = false"
-                              class="px-4 py-2 cursor-pointer hover:bg-mybg-9 transition duration-150 ease-in-out"
+                              class="px-4 py-2 cursor-pointer hover:bg-base-muted-200 transition duration-150 ease-in-out"
                               x-text="type.display"></li>
                         </template>
                       </ul>
@@ -279,7 +279,7 @@
             </div>
           </div>
 
-          <main class="flex-1 relative bg-mybg-2">
+          <main class="flex-1 relative bg-base-200">
             <div class="container mx-auto px-8 py-12">
               {% block content %}
               {% endblock content %}

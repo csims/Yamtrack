@@ -1,12 +1,12 @@
 {% if current_instance and current_instance.is_ignored %}
-  <button class="px-4 py-2 rounded-md bg-gray-600 hover:bg-gray-500 text-white transition duration-200 cursor-pointer"
+  <button class="px-4 py-2 rounded-md bg-base-muted-200 hover:bg-base-muted-100 text-white transition duration-200 cursor-pointer"
           hx-post="{% url 'toggle_season_ignore' source=media.source media_id=media.media_id season_number=media.season_number %}"
           hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
           hx-swap="outerHTML">
     Ignored
   </button>
 {% else %}
-  <button class="px-4 py-2 rounded-md bg-mybg-1 hover:bg-gray-600 text-white transition duration-200 cursor-pointer"
+  <button class="px-4 py-2 rounded-md bg-base-100 hover:bg-base-muted-200 text-white transition duration-200 cursor-pointer"
           hx-post="{% url 'toggle_season_ignore' source=media.source media_id=media.media_id season_number=media.season_number %}"
           hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
           hx-swap="outerHTML">

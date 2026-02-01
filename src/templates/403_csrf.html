@@ -6,7 +6,7 @@
 {% endblock title %}
 
 {% block body %}
-  <div class="min-h-screen bg-mybg-2 flex flex-col items-center justify-center text-white p-4">
+  <div class="min-h-screen bg-base-200 flex flex-col items-center justify-center text-white p-4">
     <div class="text-center max-w-md">
       <div class="mb-6">
         <div class="text-9xl font-bold text-red-400">403</div>
@@ -14,14 +14,14 @@
         <p class="text-gray-400 mb-4">
           You don't have permission to access this resource. Please log in or contact an administrator.
         </p>
-        <div class="bg-mybg-1 p-4 rounded-lg mb-4 text-left">
+        <div class="bg-base-100 p-4 rounded-lg mb-4 text-left">
           <h3 class="font-medium mb-2 text-gray-300">Using a Reverse Proxy?</h3>
           <p class="text-sm text-gray-400">
-            If you're accessing YamTrack through a reverse proxy, you need to set the <code class="bg-mybg-4 px-1 py-0.5 rounded">URLS</code> environment variable to your application URL.
+            If you're accessing YamTrack through a reverse proxy, you need to set the <code class="bg-base-muted-200 px-1 py-0.5 rounded">URLS</code> environment variable to your application URL.
           </p>
 
           <p class="text-sm text-gray-400 mt-2">
-            For example, <code class="bg-mybg-4 px-1 py-0.5 rounded">https://yamtrack.mydomain.com</code>.
+            For example, <code class="bg-base-muted-200 px-1 py-0.5 rounded">https://yamtrack.mydomain.com</code>.
           </p>
         </div>
         <p class="text-sm text-gray-500 mb-6">
@@ -36,7 +36,7 @@
           <span>Log In</span></a>
 
         <a href="{% url 'home' %}"
-           class="flex items-center justify-center gap-2 px-6 py-3 bg-mybg-4 text-white rounded-md hover:bg-mybg-5 transition-colors">
+           class="flex items-center justify-center gap-2 px-6 py-3 bg-base-muted-200 text-white rounded-md hover:bg-base-muted-100 transition-colors">
           {% include "app/icons/house.svg" with classes="w-5 h-5" %}
           <span>Back to Home</span></a>
       </div>

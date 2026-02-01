@@ -2,22 +2,11 @@
 
 @theme {
   --breakpoint-xs: 30rem;
-
-  --color-mybg-1: #2a2f35;  /* count: 84  - bg: lighter element/page background, base-100 */
-  --color-mybg-2: #212529;  /* count: 9   - bg: medium element/page background, base-200 */
-  --color-mybg-3: #1a1d20;  /* count: 2   - bg: darkest element/page background, base-300 */
-  --color-mybg-4: #39404b;  /* count: 134 - bg: input field background, button background, etc? */
-  --color-mybg-5: #454d5a;  /* count: 34  - bg: only on hover... button/link hover? */
-  --color-mybg-6: #2c3136;  /* count: 12  - bg: background of selected sidebar item */
-  --color-mybg-7: #23272b;  /* count: 8   - bg: background of unselected sidebar item on hover */
-  --color-mybg-8: #272c31;  /* count: 2   - bg: media type dropdown button background, search input background */
-  --color-mybg-9: #343a40;  /* count: 11  - bg: some hover (li, button, etc), some not... how is this used? */
-  --color-mybg-10: #2a2e33; /* count: 2   - bg: base.html media type dropdown button hover bg, media type dropdown ul bg */
-  --color-mybg-11: #313842; /* count: 8   - bg: users/base.html, only on hover for preferences sidebar?? */
-  --color-mybg-12: #262a2f; /* count: 13  - bg: calendar export button, integrations/import sections & inputs (plex, trakt, etc)? */
-  --color-mybg-13: #4b5563; /* count: 2   - bg: list_detail and list_grid collaborator username */
-  --color-mybg-14: #3e454d; /* count: 3   - bg: statistics media img background, media_card_list img background, media_card img link background? */
-  --color-mybg-16: #2f353e; /* count: 2   - bg: only in statistics.html - 1 legend item and week grid if day.level == 0*/
+  --color-base-100: #2a2f35;
+  --color-base-200: #212529;
+  --color-base-300: #1a1d20;
+  --color-base-muted-100: #454d5a;
+  --color-base-muted-200: #39404b;
 }
 
 /* https://tailwindcss.com/docs/upgrade-guide#hover-styles-on-mobile */
@@ -84,7 +73,7 @@
 
 /* Dropdown */
 .select2-container--tailwindcss-4.select2-container--open .select2-dropdown {
-  @apply w-full mt-1 overflow-auto rounded-md text-base bg-mybg-4 border-gray-600 border focus-within:border-indigo-500 focus-within:ring focus-within:ring-indigo-200/50;
+  @apply w-full mt-1 overflow-auto rounded-md text-base bg-base-muted-200 border-gray-600 border focus-within:border-indigo-500 focus-within:ring focus-within:ring-indigo-200/50;
 }
 
 .select2-container--tailwindcss-4 .select2-results__message {
@@ -93,12 +82,12 @@
 
 /* Hover state */
 .select2-container--tailwindcss-4 .select2-results__option--highlighted {
-  @apply text-white bg-mybg-5;
+  @apply text-white bg-base-muted-100;
 }
 
 /* Multiple selection */
 .select2-container--tailwindcss-4 .select2-selection--multiple {
-  @apply rounded-md text-base sm:text-sm/6 bg-mybg-4 p-1.5 cursor-default text-white border border-white/10;
+  @apply rounded-md text-base sm:text-sm/6 bg-base-muted-200 p-1.5 cursor-default text-white border border-white/10;
 }
 
 /* Multiple selection list */
@@ -112,7 +101,7 @@
 .select2-container--tailwindcss-4
   .select2-selection--multiple
   .select2-selection__choice {
-  @apply flex flex-row-reverse items-center gap-1 bg-mybg-5 text-gray-200 pl-2 pr-1 py-1 rounded-md text-sm border border-indigo-500/20;
+  @apply flex flex-row-reverse items-center gap-1 bg-base-muted-100 text-gray-200 pl-2 pr-1 py-1 rounded-md text-sm border border-indigo-500/20;
 }
 
 /* Remove button */

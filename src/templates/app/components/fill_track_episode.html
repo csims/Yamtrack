@@ -8,7 +8,7 @@
      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
   <div class="w-[400px] max-h-[90vh] px-4 md:px-0 relative z-60"
        @click.outside="trackOpen = false">
-    <div class="bg-mybg-1 p-6 rounded-lg max-h-[70svh] overflow-y-auto">
+    <div class="bg-base-100 p-6 rounded-lg max-h-[70svh] overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-bold text-white">Track Episode</h2>
         <button class="text-gray-400 hover:text-white transition-colors cursor-pointer"
@@ -16,7 +16,7 @@
       </div>
 
       {# Episode preview data #}
-      <div class="bg-mybg-9 rounded-lg p-4 mb-6">
+      <div class="bg-base-muted-200 rounded-lg p-4 mb-6">
         <div class="flex items-start gap-4">
           <img alt="{{ episode.title }}"
                class="w-20 h-20 rounded object-cover shrink-0"
@@ -46,7 +46,7 @@
             <div class="max-h-[200px] overflow-y-auto space-y-2">
 
               {% for entry in episode.history %}
-                <div class="flex items-center justify-between bg-mybg-9 rounded-md p-3 border border-gray-600">
+                <div class="flex items-center justify-between bg-base-muted-200 rounded-md p-3">
                   <div class="text-sm text-white">{{ entry.watched_at|date_tracker_format|default_if_none:"No date provided" }}</div>
                   <form method="post"
                         action="{% url 'media_delete' %}?next={{ request.path }}">
@@ -82,7 +82,7 @@
               inputDateTime: '{% if TRACK_TIME %}{% now "Y-m-d\TH:i" %}{% else %}{% now "Y-m-d" %}{% endif %}',
               inputType: '{% if TRACK_TIME %}datetime-local{% else %}date{% endif %}'
           }">
-            <input class="w-full p-3 bg-mybg-9 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none"
+            <input class="w-full p-3 bg-base-muted-200 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none"
                    x-bind:type="inputType"
                    name="watched_at"
                    onfocus="this.showPicker?.()"
@@ -90,7 +90,7 @@
             {% if episode.air_date %}
               <button type="button"
                       @click="inputDateTime = inputType === 'datetime-local' ? '{{ episode.air_date }}T{% now "H:i" %}' : '{{ episode.air_date }}'"
-                      class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center text-sm text-indigo-400 hover:text-indigo-300 transition-colors bg-mybg-1 px-2 py-1 rounded cursor-pointer">
+                      class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center text-sm text-indigo-400 hover:text-indigo-300 transition-colors bg-base-100 px-2 py-1 rounded cursor-pointer">
                 {% include "app/icons/calendar.svg" with classes="w-4 h-4 mr-1" %}
                 Air date
               </button>
