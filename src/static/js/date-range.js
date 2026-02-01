@@ -198,8 +198,19 @@ function dateRangePicker() {
         return;
       }
       // Parse the current start and end dates
-      const startDate = new Date(this.startDate);
-      const endDate = new Date(this.endDate);
+      // TODO - harden date parsing and make sane 'cause I'm doing it a stupid way for now to get around time zone nonsense
+      const [startYear, startMonth, startDay] = this.startDate.split('-').map(x => Number(x));
+      const [endYear, endMonth, endDay] = this.endDate.split('-').map(x => Number(x));
+
+      const startDate = new Date();
+      startDate.setFullYear(startYear);
+      startDate.setMonth(startMonth - 1);
+      startDate.setDate(startDay)
+
+      const endDate = new Date();
+      endDate.setFullYear(endYear);
+      endDate.setMonth(endMonth - 1);
+      endDate.setDate(endDay);
 
       // Get today's date with time set to 00:00:00
       const today = new Date();
