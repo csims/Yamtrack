@@ -47,29 +47,29 @@
           previewDiv.innerHTML = this.placeholderHtml;
         }
       },
-    
+
       showField(field) {
         // TV Show fields
         if (this.mediaType === 'tv') {
           return ['title', 'image', 'score', 'status', 'notes'].includes(field);
         }
-    
+
         // Season fields
         else if (this.mediaType === 'season') {
           return ['parentShow', 'image', 'seasonNumber', 'score', 'status', 'notes'].includes(field);
         }
-    
+
         // Episode fields
         else if (this.mediaType === 'episode') {
           return ['parentSeason', 'image', 'episodeNumber', 'endDate'].includes(field);
         }
-    
+
         // Movie, Anime, Manga, Game, Book fields
         else {
           return ['title', 'image', 'score', 'progress', 'status', 'startDate', 'endDate', 'notes'].includes(field);
         }
       },
-    
+
       getProgressLabel() {
         if (this.mediaType === 'anime') return 'Progress (Episodes)';
         if (this.mediaType === 'manga') return 'Progress (Chapters)';
@@ -77,7 +77,7 @@
         if (this.mediaType === 'book') return 'Progress (Pages)';
         return 'Progress';
       },
-    
+
       validateForm() {
         // Validate parent TV selection for Season
         if (this.mediaType === 'season') {
@@ -87,7 +87,7 @@
             return false;
           }
         }
-    
+
         // Validate parent Season selection for Episode
         if (this.mediaType === 'episode') {
           const parentSeasonId = document.getElementById('parent-season-id').value;
@@ -96,7 +96,7 @@
             return false;
           }
         }
-    
+
         return true;
       }
     }" @submit.prevent="validateForm() && $event.target.submit()">
@@ -104,7 +104,7 @@
     {% csrf_token %}
     <input type="hidden" name="media_type" :value="mediaType">
 
-    <div class="bg-[#2a2f35] rounded-lg p-6">
+    <div class="bg-mybg-1 rounded-lg p-6">
       <div class="grid gap-6">
         <div x-cloak>
           <label class="block text-sm font-medium mb-2 text-gray-300">Media Type</label>
@@ -112,7 +112,7 @@
             {% for media_type in media_types %}
               <button type="button"
                       @click="mediaType = '{{ media_type }}'"
-                      :class="mediaType === '{{ media_type }}' ? 'bg-indigo-600 border-indigo-500 text-white' : 'border-gray-600 text-gray-300 hover:bg-[#39404b]'"
+                      :class="mediaType === '{{ media_type }}' ? 'bg-indigo-600 border-indigo-500 text-white' : 'border-gray-600 text-gray-300 hover:bg-mybg-4'"
                       class="flex items-center gap-2 p-3 rounded-md border transition-colors cursor-pointer">
                 {% icon media_type is_active=False %}
                 <span class="text-sm font-medium">{{ media_type|media_type_readable }}</span>
@@ -124,7 +124,7 @@
         <!-- Title field (TV, Movie, Anime, Manga, Game, Book) -->
         <div x-show="showField('title')">
           <label class="block text-sm font-medium mb-2 text-gray-300">Title</label>
-          <input class="w-full p-2 bg-[#39404b] rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#4a9eff] appearance-none"
+          <input class="w-full p-2 bg-mybg-4 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none"
                  placeholder="Enter title"
                  name="title"
                  type="text"
@@ -137,7 +137,7 @@
           <div class="relative">
             <div class="relative">
               <input id="parent-tv-input"
-                     class="w-full p-2 pl-9 bg-[#39404b] rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#4a9eff] appearance-none"
+                     class="w-full p-2 pl-9 bg-mybg-4 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none"
                      placeholder="Search for a TV show..."
                      name="q"
                      type="text"
@@ -159,7 +159,7 @@
           <div class="relative">
             <input min="1"
                    max="999"
-                   class="w-full p-2 pr-12 bg-[#39404b] rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#4a9eff] [appearance:textfield] [&amp;::-webkit-outer-spin-button]:appearance-none [&amp;::-webkit-inner-spin-button]:appearance-none"
+                   class="w-full p-2 pr-12 bg-mybg-4 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 [appearance:textfield] [&amp;::-webkit-outer-spin-button]:appearance-none [&amp;::-webkit-inner-spin-button]:appearance-none"
                    name="season_number"
                    type="number"
                    value="1">
@@ -184,7 +184,7 @@
           <div class="relative">
             <div class="relative">
               <input id="parent-season-input"
-                     class="w-full p-2 pl-9 bg-[#39404b] rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#4a9eff] appearance-none"
+                     class="w-full p-2 pl-9 bg-mybg-4 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none"
                      placeholder="Search for a season..."
                      name="q"
                      type="text"
@@ -206,7 +206,7 @@
           <div class="relative">
             <input min="1"
                    max="999"
-                   class="w-full p-2 pr-12 bg-[#39404b] rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#4a9eff] [appearance:textfield] [&amp;::-webkit-outer-spin-button]:appearance-none [&amp;::-webkit-inner-spin-button]:appearance-none"
+                   class="w-full p-2 pr-12 bg-mybg-4 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 [appearance:textfield] [&amp;::-webkit-outer-spin-button]:appearance-none [&amp;::-webkit-inner-spin-button]:appearance-none"
                    name="episode_number"
                    type="number"
                    value="1">
@@ -230,7 +230,7 @@
           <label class="block text-sm font-medium mb-2 text-gray-300">Image URL</label>
           <div class="flex gap-4">
             <div class="flex-1">
-              <input class="w-full p-2 bg-[#39404b] rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#4a9eff] appearance-none"
+              <input class="w-full p-2 bg-mybg-4 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none"
                      name="image"
                      placeholder="Enter image URL"
                      type="url"
@@ -238,7 +238,7 @@
                      x-on:input="updateImagePreview($event.target)">
             </div>
             <div id="image-preview"
-                 class="w-20 h-20 rounded-md overflow-hidden bg-[#39404b] border border-gray-600 flex items-center justify-center">
+                 class="w-20 h-20 rounded-md overflow-hidden bg-mybg-4 border border-gray-600 flex items-center justify-center">
               {% include "app/icons/image.svg" with classes="w-8 h-8 text-gray-500" %}
             </div>
             <!-- Hidden error icon template -->
@@ -252,7 +252,7 @@
           <div class="relative">
             <input min="0"
                    max="10"
-                   class="w-full p-2 pr-12 bg-[#39404b] rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#4a9eff] [appearance:textfield] [&amp;::-webkit-outer-spin-button]:appearance-none [&amp;::-webkit-inner-spin-button]:appearance-none"
+                   class="w-full p-2 pr-12 bg-mybg-4 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 [appearance:textfield] [&amp;::-webkit-outer-spin-button]:appearance-none [&amp;::-webkit-inner-spin-button]:appearance-none"
                    name="score"
                    type="number"
                    placeholder="0-10">
@@ -277,7 +277,7 @@
                  x-text="getProgressLabel()">Progress</label>
 
           <div class="relative">
-            <input class="w-full p-2 pr-12 bg-[#39404b] rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#4a9eff] appearance-none"
+            <input class="w-full p-2 pr-12 bg-mybg-4 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none"
                    name="progress"
                    x-bind:type="mediaType === 'game' ? 'text' : 'number'"
                    x-bind:placeholder="mediaType === 'game' ? 'hh:mm' : ''"
@@ -306,7 +306,7 @@
         <div x-show="showField('status')">
           <label class="block text-sm font-medium mb-2 text-gray-300">Status</label>
           <div class="relative">
-            <select class="w-full p-2 bg-[#39404b] rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#4a9eff] appearance-none"
+            <select class="w-full p-2 bg-mybg-4 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none"
                     name="status">
               {% for status in Status.values %}<option value="{{ status }}">{{ status }}</option>{% endfor %}
             </select>
@@ -319,7 +319,7 @@
         <!-- Start Date field (Movie, Anime, Manga, Game, Book) -->
         <div x-show="showField('startDate')">
           <label class="block text-sm font-medium mb-2 text-gray-300">Start Date</label>
-          <input class="w-full p-2 bg-[#39404b] rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#4a9eff] appearance-none"
+          <input class="w-full p-2 bg-mybg-4 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none"
                  name="start_date"
                  type="date"
                  value="">
@@ -328,7 +328,7 @@
         <!-- End Date field (Episode, Movie, Anime, Manga, Game, Book) -->
         <div x-show="showField('endDate')">
           <label class="block text-sm font-medium mb-2 text-gray-300">End Date</label>
-          <input class="w-full p-2 bg-[#39404b] rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#4a9eff] appearance-none"
+          <input class="w-full p-2 bg-mybg-4 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none"
                  name="end_date"
                  type="date"
                  value="">
@@ -337,7 +337,7 @@
         <!-- Notes field (TV, Movie, Anime, Manga, Game, Book, Season) -->
         <div x-show="showField('notes')">
           <label class="block text-sm font-medium mb-2 text-gray-300">Notes</label>
-          <textarea class="w-full p-2 bg-[#39404b] rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#4a9eff] appearance-none"
+          <textarea class="w-full p-2 bg-mybg-4 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none"
                     rows="4"
                     name="notes"
                     placeholder="Add any notes or comments..."></textarea>

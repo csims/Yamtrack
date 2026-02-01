@@ -128,9 +128,10 @@ Engaged rule:
 
 ### Calendar
 
-- Exclude specials and any show with TV status On hold/Dropped.
-- If season is ignored, its episodes should not appear.
-- Exclude hidden episodes.
+- Exclude any show with TV status On hold/Dropped.
+- Exclude specials seasons and seasons flagged as ignored.
+- Exclude episodes flagged with is_hidden_override.
+
 
 ## Implementation chunks
 

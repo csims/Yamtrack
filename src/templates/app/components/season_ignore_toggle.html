@@ -6,7 +6,7 @@
     Ignored
   </button>
 {% else %}
-  <button class="px-4 py-2 rounded-md bg-[#2a2f35] hover:bg-gray-600 text-white transition duration-200 cursor-pointer"
+  <button class="px-4 py-2 rounded-md bg-mybg-1 hover:bg-gray-600 text-white transition duration-200 cursor-pointer"
           hx-post="{% url 'toggle_season_ignore' source=media.source media_id=media.media_id season_number=media.season_number %}"
           hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
           hx-swap="outerHTML">

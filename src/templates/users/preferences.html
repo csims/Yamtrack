@@ -7,7 +7,7 @@
 {% endblock title %}
 
 {% block settings_content %}
-  <div class="bg-[#2a2f35] rounded-lg p-6">
+  <div class="bg-mybg-1 rounded-lg p-6">
     <div class="flex items-center mb-4">
       {% include "app/icons/vertical-sliders.svg" with classes="w-6 h-6 text-indigo-400 mr-3" %}
       <h2 class="text-xl font-semibold">Preferences</h2>
@@ -18,7 +18,7 @@
 
       {# Media Card Overlay #}
       <div class="mb-5">
-        <div class="flex items-center justify-between p-3 bg-[#39404b] rounded-md">
+        <div class="flex items-center justify-between p-3 bg-mybg-4 rounded-md">
           <div class="flex-1">
             <div class="flex items-center text-gray-200 mb-1">
               {% include "app/icons/image.svg" with classes="w-5 h-5 mr-2" %}
@@ -42,7 +42,7 @@
 
       {# Quick Watch Date #}
       <div class="mb-5">
-        <div class="flex items-center justify-between p-3 bg-[#39404b] rounded-md">
+        <div class="flex items-center justify-between p-3 bg-mybg-4 rounded-md">
           <div class="flex-1">
             <div class="flex items-center text-gray-200 mb-1">
               {% include "app/icons/clock.svg" with classes="w-5 h-5 mr-2" %}
@@ -53,7 +53,7 @@
             </p>
           </div>
           <select name="quick_watch_date"
-                  class="ml-4 p-2 bg-[#39404b] rounded-md text-white text-sm border border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                  class="ml-4 p-2 bg-mybg-4 rounded-md text-white text-sm border border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400">
             {% for choice in quick_watch_date_choices %}
               <option value="{{ choice.0 }}"
                       {% if user.quick_watch_date == choice.0 %}selected{% endif %}>{{ choice.1 }}</option>
@@ -76,7 +76,7 @@
 
         <div class="grid gap-3 md:grid-cols-3">
           {% for media_type in media_types %}
-            <div class="flex items-center justify-between p-3 bg-[#39404b] rounded-md">
+            <div class="flex items-center justify-between p-3 bg-mybg-4 rounded-md">
               <div class="flex items-center text-gray-400">
                 {% icon media_type is_active=False %}
                 <span class="text-gray-200 text-sm ml-2">{{ media_type|media_type_readable_plural }}</span>

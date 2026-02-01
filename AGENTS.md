@@ -2,6 +2,7 @@
 
 - Ask if any task is unclear or seems unfeasible.
 - Agent is running in a Docker container that may not have all required dependencies installed. The user can run tests, python commands, etc. and report the findings back as needed.
+- Run any python commands with `python3`, not `python`
 
 ## Project Structure & Module Organization
 - `src/` holds the Django project and apps. Key apps include `app/`, `events/`, `lists/`, `integrations/`, and `users/`.
