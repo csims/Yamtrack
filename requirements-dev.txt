@@ -1,4 +1,4 @@
-coverage==7.13.0
+coverage==7.13.4
 djlint==1.36.4
 fakeredis==2.33.0
 honcho==2.0.0
