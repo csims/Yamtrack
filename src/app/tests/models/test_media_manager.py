@@ -154,6 +154,12 @@ class MediaManagerTests(TestCase):
                     related_season=self.season1,
                     watched_at=datetime(2023, 6, i, 0, 0, tzinfo=UTC),
                 )
+            Event.objects.create(
+                item=self.season1_item,
+                content_number=i,
+                datetime=timezone.now() - timedelta(days=20 - i),
+                notification_sent=True,
+            )
 
         for i in range(4, 7):
             Event.objects.create(
@@ -234,7 +240,7 @@ class MediaManagerTests(TestCase):
 
         self.assertTrue(hasattr(prefetched_queryset, "_prefetch_related_lookups"))
         prefetch_lookups = prefetched_queryset._prefetch_related_lookups
-        self.assertEqual(len(prefetch_lookups), 2)
+        self.assertEqual(len(prefetch_lookups), 3)
 
         queryset = Season.objects.filter(user=self.user.id)
         prefetched_queryset = manager._apply_prefetch_related(
@@ -472,7 +478,8 @@ class MediaManagerTests(TestCase):
 
         media_types = manager._get_media_types_to_process(self.user, None)
 
-        self.assertNotIn(MediaTypes.TV.value, media_types)
+        self.assertIn(MediaTypes.TV.value, media_types)
+        self.assertNotIn(MediaTypes.SEASON.value, media_types)
         self.assertIn(MediaTypes.ANIME.value, media_types)
         self.assertIn(MediaTypes.MOVIE.value, media_types)
         self.assertIn(MediaTypes.GAME.value, media_types)
@@ -664,7 +671,7 @@ class MediaManagerTests(TestCase):
         )
 
         manager._annotate_tv_released_episodes(tv_list, timezone.now())
-        self.assertEqual(tv_list[0].max_progress, 10)
+        self.assertEqual(tv_list[0].max_progress, 5)
 
     def test_get_in_progress(self):
         """Test the get_in_progress method."""
@@ -683,6 +690,7 @@ class MediaManagerTests(TestCase):
             items_limit=10,
         )
 
+        self.assertIn(MediaTypes.TV.value, in_progress)
         self.assertIn(MediaTypes.ANIME.value, in_progress)
         self.assertEqual(len(in_progress[MediaTypes.ANIME.value]["items"]), 1)
         self.assertEqual(in_progress[MediaTypes.ANIME.value]["total"], 1)
@@ -694,6 +702,7 @@ class MediaManagerTests(TestCase):
         )
 
         self.assertIn(MediaTypes.ANIME.value, in_progress)
+        self.assertIn(MediaTypes.TV.value, in_progress)
         self.assertIn(MediaTypes.GAME.value, in_progress)
         self.assertIn(MediaTypes.MANGA.value, in_progress)
         self.assertNotIn(MediaTypes.MOVIE.value, in_progress)  # Completed

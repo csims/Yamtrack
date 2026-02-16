@@ -153,11 +153,12 @@ Engaged rule:
 
 4) **Watch flows**
    - (DONE) Single episode watch creates EpisodeWatch.
-   - Bulk mark season/TV watched with “now” or “air date” options.
+   - (Sort of DONE) Bulk mark season/TV watched with “now” or “air date” options.
+     - This exists as a user-level preference already, so will consider good enough for now.
    - Ensure bulk operations skip specials and unaired episodes.
 
 5) **UI and queries**
-   - Update In Progress home query to TV-level.
+   - (DONE) Update In Progress home query to TV-level.
    - Update TV shows filtering: Completed (100%), In progress (started but <100%).
       - This applies across any pages with status filters such as the /medialist/tv page and lists.
    - Ensure calendar hides specials + ignored seasons + On hold/Dropped.
@@ -189,6 +190,21 @@ Engaged rule:
 - Updated export CSV schema to use `watched_at` and `watch_source` for EpisodeWatch, plus Yamtrack fixtures and importer alignment in `src/integrations/exports.py` and `src/integrations/imports/yamtrack.py`.
 - Updated history deletion to support EpisodeWatch and updated EpisodeWatch admin display (user + source) and help text in `src/app/views.py`, `src/app/admin.py`, `src/app/models.py`.
 - Migrated Episode-based tests to EpisodeWatch across models/views/providers in `src/app/tests/`.
+- Updated Home TV flow:
+   - Home In Progress is now TV-level (season-level section removed from home processing)
+   - TV home cards now compute and display a next episode label like Show S2 E8 (earliest eligible unwatched episode is displayed).
+   - TV home cards now link to the relevant season page (not TV details) when a next episode is available.
+   - Replaced - / + controls on TV home cards with Watch and Air Date (if available) buttons
+   - Added TV unit config so TV episode badges render correctly.
+   - Refactored home card rendering into a partial so the watch action can replace a single card and HTMX updates the card in-place without full reload.
+   - Now supports:
+      - Season auto-complete when all non-hidden episodes are watched and no non-hidden episodes remain unaired.
+      - Premiere/Finale badge on selected home episode, ignoring hidden episodes.
+  - Added robust test coverage for:
+      - Non-completion when non-hidden unaired episodes remain.
+      - Badge behavior with hidden episodes.
+      - Hidden unaired episodes not blocking completion.
+      - Existing rollover and watch-path behaviors.
 
 ## Backfill plan (if introducing EpisodeWatch) (DONE)
 

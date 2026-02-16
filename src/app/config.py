@@ -24,6 +24,7 @@ MEDIA_TYPE_CONFIG = {
         "sample_query": "Breaking Bad",
         "unicode_icon": "📺",
         "verb": ("watch", "watched"),
+        "unit": ("E", "Episode"),
         "text_color": COLORS["emerald"]["text"],
         "stats_color": COLORS["emerald"]["hex"],
         "svg_icon": """

@@ -1,0 +1,124 @@
+{% load app_tags %}
+
+<div id="home-card-{{ media.id }}"
+     class="bg-base-100 rounded-lg overflow-hidden shadow-lg transition-all duration-300"
+     x-data="{ trackOpen: false, listsOpen: false, historyOpen: false }">
+  <div class="relative">
+    {% if media.home_season_item %}
+      <a href="{{ media.home_season_item|media_url }}">
+    {% else %}
+      <a href="{{ media.item|media_url }}">
+    {% endif %}
+        <img alt="{{ media }}"
+             class="lazyload w-full aspect-2/3 {% if media.home_season_item %}{% if media.home_season_item.image != IMG_NONE %}object-cover{% endif %}{% else %}{% if media.item.image != IMG_NONE %}object-cover{% endif %}{% endif %}"
+             data-src="{% if media.home_season_item %}{{ media.home_season_item.image }}{% else %}{{ media.item.image }}{% endif %}"
+             src="{{ IMG_NONE }}">
+      </a>
+
+    {% if media.next_event and not media.next_event.is_max_datetime %}
+      <div class="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/80 px-2 py-1.5 rounded-md shadow-md whitespace-nowrap max-w-[98%]">
+        {% include "app/icons/clock.svg" with classes="w-3.5 h-3.5 text-indigo-400" %}
+        <span class="text-xs font-medium text-white drop-shadow-sm truncate">
+          {% if media.next_event.content_number %}
+            {{ media.item.media_type|short_unit }}{{ media.next_event.content_number }}
+          {% else %}
+            Release
+          {% endif %}
+
+          • {{ media.next_event.datetime|natural_day }} {{ media.next_event.display_time }}
+        </span>
+      </div>
+    {% endif %}
+
+    {% if media.home_episode_badge %}
+      <div class="absolute bottom-2 right-2 flex items-center gap-1.5 bg-black/80 px-2 py-1.5 rounded-md shadow-md whitespace-nowrap max-w-[98%]">
+        {% include "app/icons/ribbon.svg" with classes="w-3.5 h-3.5 text-amber-400" %}
+        <span class="text-xs font-medium text-white drop-shadow-sm truncate">
+          {{ media.home_episode_badge }}
+        </span>
+      </div>
+    {% endif %}
+
+    <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover-tap:opacity-100{% if user.clickable_media_cards %} pointer-coarse:hidden{% endif %}">
+      {% if media.home_season_item %}
+        <a href="{{ media.home_season_item|media_url }}" class="absolute inset-0"></a>
+      {% else %}
+        <a href="{{ media.item|media_url }}" class="absolute inset-0"></a>
+      {% endif %}
+
+      <div class="relative flex items-center justify-center space-x-2.5">
+        {# Track Button #}
+        <button class="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition-all duration-200 cursor-pointer"
+                title="Add to tracker"
+                hx-get="{% media_view_url 'track_modal' media.item %}"
+                hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}", "instance_id": "{{ media.id }}"}'
+                hx-target="#{% component_id 'track' media.item media.id %}"
+                hx-trigger="click once"
+                @click="trackOpen = true">{% include "app/icons/edit.svg" with classes="w-4 h-4" %}</button>
+
+        {# Lists Button #}
+        <button class="p-2.5 bg-emerald-600 text-white rounded-full hover:bg-emerald-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-all duration-200 cursor-pointer"
+                title="Add to custom lists"
+                hx-get="{% media_view_url 'lists_modal' media.item %}"
+                hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"}'
+                hx-target="#{% component_id 'lists' media.item %}"
+                hx-trigger="click once"
+                @click="listsOpen = true">{% include "app/icons/list-add.svg" with classes="w-4 h-4" %}</button>
+
+        {# History Button #}
+        <button class="p-2.5 bg-amber-600 text-white rounded-full hover:bg-amber-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(245,158,11,0.5)] transition-all duration-200 cursor-pointer"
+                title="View your activity history"
+                hx-get="{% media_view_url 'history_modal' media.item %}"
+                hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"}'
+                hx-target="#{% component_id 'history' media.item %}"
+                hx-trigger="click once"
+                @click="historyOpen = true">{% include "app/icons/history.svg" with classes="w-4 h-4" %}</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="p-3 space-y-3">
+    {% if media.home_season_item %}
+      <a href="{{ media.home_season_item|media_url }}"
+         class="text-sm font-semibold text-white hover:text-indigo-400 transition duration-300 line-clamp-1 text-center"
+         title="{{ media.home_display_title|default:media }}">{{ media.home_display_title|default:media }}</a>
+    {% else %}
+      <a href="{{ media.item|media_url }}"
+         class="text-sm font-semibold text-white hover:text-indigo-400 transition duration-300 line-clamp-1 text-center"
+         title="{{ media.home_display_title|default:media }}">{{ media.home_display_title|default:media }}</a>
+    {% endif %}
+    <div id="progress-{{ media.item.media_type }}-{{ media.id }}">
+      {% include "app/components/progress_changer.html" with media=media csrf_token=csrf_token MediaTypes=MediaTypes only %}
+    </div>
+  </div>
+
+  {# Track Modal #}
+  <div x-show="trackOpen"
+       @keydown.escape.window="trackOpen = false"
+       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="w-152 max-h-[90vh] px-4 md:px-0 relative z-60"
+         @click.outside="trackOpen = false">
+      <div id="{% component_id 'track' media.item media.id %}"></div>
+    </div>
+  </div>
+
+  {# Lists Modal #}
+  <div x-show="listsOpen"
+       @keydown.escape.window="listsOpen = false"
+       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="w-96 max-h-[90vh] px-4 md:px-0 relative z-60"
+         @click.outside="listsOpen = false">
+      <div id="{% component_id 'lists' media.item %}"></div>
+    </div>
+  </div>
+
+  {# History Modal #}
+  <div x-show="historyOpen"
+       @keydown.escape.window="historyOpen = false"
+       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="w-96 max-h-[90vh] px-4 md:px-0 relative z-60"
+         @click.outside="historyOpen = false">
+      <div id="{% component_id 'history' media.item %}"></div>
+    </div>
+  </div>
+</div>

@@ -78,6 +78,74 @@ def home(request):
     return render(request, "app/home.html", context)
 
 
+def _annotate_home_tv_entry(tv):
+    """Annotate a TV object with home-card computed fields."""
+    BasicMedia.objects.annotate_home_tv_entries([tv])
+
+    return tv
+
+
+@require_POST
+def home_watch_next_episode(request, instance_id):
+    """Watch the currently displayed next TV episode from home card."""
+    watch_on = request.POST.get("watch_on", "now")
+
+    tv = BasicMedia.objects.get_media_prefetch(
+        request.user,
+        MediaTypes.TV.value,
+        instance_id,
+    )
+    tv = _annotate_home_tv_entry(tv)
+
+    if not tv.home_season_item or not tv.home_episode_number:
+        return HttpResponse("")
+
+    season = next(
+        (
+            candidate
+            for candidate in tv.seasons.all()
+            if candidate.item_id == tv.home_season_item.id
+        ),
+        None,
+    )
+    if season is None:
+        season = Season.objects.create(
+            item=tv.home_season_item,
+            user=request.user,
+            related_tv=tv,
+            status=Status.IN_PROGRESS.value,
+        )
+
+    watched_at = timezone.now().replace(second=0, microsecond=0)
+    if watch_on == "air_date" and tv.home_episode_air_datetime:
+        watched_at = tv.home_episode_air_datetime
+
+    season.watch(tv.home_episode_number, watched_at, source="manual")
+    BasicMedia.objects.maybe_mark_season_completed(season)
+
+    refreshed_tv = BasicMedia.objects.get_media_prefetch(
+        request.user,
+        MediaTypes.TV.value,
+        instance_id,
+    )
+    refreshed_tv = _annotate_home_tv_entry(refreshed_tv)
+
+    if not refreshed_tv.is_engaged_home:
+        return HttpResponse("")
+
+    if (
+        refreshed_tv.max_progress > 0
+        and refreshed_tv.progress >= refreshed_tv.max_progress
+    ):
+        return HttpResponse("")
+
+    return render(
+        request,
+        "app/components/home_card.html",
+        {"media": refreshed_tv},
+    )
+
+
 @require_POST
 def progress_edit(request, media_type, instance_id):
     """Increase or decrease the progress of a media item from home page."""

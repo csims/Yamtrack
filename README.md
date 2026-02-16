@@ -3,7 +3,7 @@
 This is a fork of [FuzzyGrim's Yamtrack](https://github.com/FuzzyGrim/Yamtrack) - go show support there!
 
 > [!WARNING]
-> I forked this for personal use to add features I wanted. There's a fair amount of vibe coding going on here since I'm not really intending this to be used by anyone else.
+> I forked this for personal use to add features I wanted. I'm vibe coding a lot of python here since I'm not really intending my changes to be used by anyone else.
 
 ![App Tests](https://github.com/csims/Yamtrack/actions/workflows/app-tests.yml/badge.svg)
 ![Docker Image](https://github.com/csims/Yamtrack/actions/workflows/docker-image.yml/badge.svg)
