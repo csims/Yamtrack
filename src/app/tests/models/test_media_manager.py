@@ -673,6 +673,34 @@ class MediaManagerTests(TestCase):
         manager._annotate_tv_released_episodes(tv_list, timezone.now())
         self.assertEqual(tv_list[0].max_progress, 5)
 
+    def test_annotate_tv_released_episodes_home_progress_only_when_enabled(self):
+        """Home progress cache should only be set when explicitly enabled."""
+        manager = MediaManager()
+        tv_list = list(
+            TV.objects.filter(user=self.user.id).prefetch_related(
+                Prefetch(
+                    "seasons__item__event_set",
+                    queryset=Event.objects.all(),
+                    to_attr="prefetched_events",
+                ),
+            ),
+        )
+
+        tv = tv_list[0]
+        self.assertEqual(tv.progress, 3)
+
+        manager._annotate_tv_released_episodes(tv_list, timezone.now())
+        self.assertFalse(hasattr(tv, "_home_progress"))
+        self.assertEqual(tv.progress, 3)
+
+        manager._annotate_tv_released_episodes(
+            tv_list,
+            timezone.now(),
+            include_home_progress=True,
+        )
+        self.assertTrue(hasattr(tv, "_home_progress"))
+        self.assertEqual(tv._home_progress, 3)
+
     def test_get_in_progress(self):
         """Test the get_in_progress method."""
         manager = MediaManager()

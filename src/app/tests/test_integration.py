@@ -56,11 +56,9 @@ class IntegrationTest(StaticLiveServerTestCase):
             "Last watched: Jan. 20, 2008",
         )
         self.page.get_by_role("link", name="Home").click()
-        expect(self.page.get_by_text("Breaking Bad S1 1 Episode")).to_be_visible()
-        self.page.get_by_text("Breaking Bad S1 1 Episode").get_by_role("button").nth(
-            1,
-        ).click()
-        self.page.get_by_title("Breaking Bad S1").click()
+        expect(self.page.get_by_text("Breaking Bad S1 E2")).to_be_visible()
+        self.page.get_by_role("button", name="Watch").first.click()
+        self.page.get_by_title("Breaking Bad S1 E3").click()
 
         today = formats.date_format(
             timezone.localdate(),

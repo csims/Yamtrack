@@ -148,7 +148,12 @@ def home_watch_next_episode(request, instance_id):
 
 @require_POST
 def progress_edit(request, media_type, instance_id):
-    """Increase or decrease the progress of a media item from home page."""
+    """Increase or decrease progress from progress_changer controls.
+
+    Note: season +/- operations are currently a legacy path and are not part of
+    the primary episode-driven Home TV flow (which uses home_watch_next_episode).
+    Kept for backward compatibility and existing tests.
+    """
     operation = request.POST["operation"]
 
     media = BasicMedia.objects.get_media_prefetch(
@@ -163,7 +168,7 @@ def progress_edit(request, media_type, instance_id):
         media.decrease_progress()
 
     if media_type == MediaTypes.SEASON.value:
-        # clear prefetch cache to get the updated episodes
+        # Legacy season +/- path: clear prefetch cache to get updated watches.
         media.refresh_from_db()
         prefetch_related_objects([media], "episode_watches")
 
@@ -756,6 +761,18 @@ def episode_save(request):
         form.cleaned_data["watched_at"],
         source="manual",
     )
+
+    has_episode_events = related_season.item.event_set.filter(
+        content_number__isnull=False,
+    ).exists()
+    if not has_episode_events:
+        try:
+            related_season.item.fetch_releases(delay=False)
+        except Exception:
+            logger.exception(
+                "Failed to refresh release events for %s after episode watch",
+                related_season.item,
+            )
 
     return helpers.redirect_back(request)
 

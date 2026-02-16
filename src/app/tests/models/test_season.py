@@ -77,6 +77,43 @@ class SeasonModel(TestCase):
         """Test the progress property of the Season model."""
         self.assertEqual(self.season.progress, 2)
 
+    def test_season_progress_counts_distinct_episodes(self):
+        """Progress should count distinct episodes, not highest episode number."""
+        item_ep4 = Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            title="Friends",
+            image="http://example.com/image.jpg",
+            season_number=1,
+            episode_number=4,
+        )
+        EpisodeWatch.objects.create(
+            item=item_ep4,
+            related_season=self.season,
+            watched_at=datetime(2023, 6, 3, 0, 0, tzinfo=UTC),
+        )
+
+        self.season.episode_watches.filter(item__episode_number=1).delete()
+        self.season.episode_watches.filter(item__episode_number=2).delete()
+        self.assertEqual(self.season.progress, 1)
+
+    def test_season_progress_ignores_rewatches(self):
+        """Multiple watches of the same episode should count once."""
+        episode_two_item = Item.objects.get(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            season_number=1,
+            episode_number=2,
+        )
+        EpisodeWatch.objects.create(
+            item=episode_two_item,
+            related_season=self.season,
+            watched_at=datetime(2023, 6, 3, 0, 0, tzinfo=UTC),
+        )
+        self.assertEqual(self.season.progress, 2)
+
     def test_season_start_date(self):
         """Test the start_date property of the Season model."""
         self.assertEqual(

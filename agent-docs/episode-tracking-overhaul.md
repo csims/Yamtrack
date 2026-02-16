@@ -162,6 +162,8 @@ Engaged rule:
    - Update TV shows filtering: Completed (100%), In progress (started but <100%).
       - This applies across any pages with status filters such as the /medialist/tv page and lists.
    - Ensure calendar hides specials + ignored seasons + On hold/Dropped.
+   - TODO: Decide whether to fully deprecate season +/- `progress_edit` path now
+     that Home is TV-level and season tracking is episode-driven.
 
 6) **History/statistics alignment**
    - Decide which models should still use django-simple-history.
@@ -257,3 +259,6 @@ Webhooks:
 - New season starts -> TV appears on In Progress with remaining aired count.
 - TV status = Dropped -> hidden from In Progress and calendar.
 - Specials season -> excluded from progress, calendar, In Progress; still can bulk-mark at season level.
+- Season +/- progress_edit path either:
+  - remains explicitly supported as legacy behavior, or
+  - is removed with matching view/template/test cleanup.

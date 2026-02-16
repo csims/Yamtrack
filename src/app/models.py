@@ -561,6 +561,7 @@ class MediaManager(models.Manager):
             current_time,
             hidden_episode_map=hidden_episode_map,
             aired_episode_map=aired_episode_map,
+            include_home_progress=True,
         )
         self._annotate_next_event(tv_list, hidden_episode_map=hidden_episode_map)
         self._annotate_tv_home_next_episode(
@@ -1085,6 +1086,8 @@ class MediaManager(models.Manager):
         current_datetime,
         hidden_episode_map=None,
         aired_episode_map=None,
+        *,
+        include_home_progress=False,
     ):
         """Annotate TV shows with the number of released episodes."""
         hidden_episode_map = hidden_episode_map or {}
@@ -1112,7 +1115,8 @@ class MediaManager(models.Manager):
                 hidden_episode_map,
             )
             tv.max_progress = len(aired_episodes)
-            tv._home_progress = len(watched_episodes)
+            if include_home_progress:
+                tv._home_progress = len(watched_episodes)
 
     def _get_tv_aired_episode_keys(
         self,
@@ -1865,34 +1869,39 @@ class Season(Media):
 
     @property
     def progress(self):
-        """Return the current episode number of the season."""
+        """Return number of distinct watched episodes in the season."""
+        return len(
+            {
+                watch.item.episode_number
+                for watch in self.episode_watches.all()
+                if not watch.item.is_hidden_override
+            },
+        )
+
+    def _current_episode_number(self):
+        """Return watched episode number used for next/unwatch actions."""
         episodes = self.episode_watches.all()
         if not episodes:
             return 0
 
         if self.status == Status.IN_PROGRESS.value:
-            # Calculate repeat counts for each episode number
             episode_counts = {}
-            for ep in episodes:
-                ep_num = ep.item.episode_number
-                episode_counts[ep_num] = episode_counts.get(ep_num, 0) + 1
+            for watch in episodes:
+                episode_number = watch.item.episode_number
+                episode_counts[episode_number] = (
+                    episode_counts.get(episode_number, 0) + 1
+                )
 
-            # Sort by repeat count then episode_number
             sorted_episodes = sorted(
                 episodes,
-                key=lambda e: (
-                    -episode_counts[e.item.episode_number],
-                    -e.item.episode_number,
+                key=lambda watch: (
+                    -episode_counts[watch.item.episode_number],
+                    -watch.item.episode_number,
                 ),
             )
-        else:
-            # Default sorting by episode_number
-            sorted_episodes = sorted(
-                episodes,
-                key=lambda e: -e.item.episode_number,
-            )
+            return sorted_episodes[0].item.episode_number
 
-        return sorted_episodes[0].item.episode_number
+        return max(watch.item.episode_number for watch in episodes)
 
     @property
     def progressed_at(self):
@@ -1925,7 +1934,11 @@ class Season(Media):
         return max(dates) if dates else None
 
     def increase_progress(self):
-        """Watch the next episode of the season."""
+        """Watch the next episode of the season.
+
+        Legacy support for progress_edit +/- season controls. Primary season
+        tracking is episode-driven (episode_save and home_watch_next_episode).
+        """
         season_metadata = providers.services.get_media_metadata(
             MediaTypes.SEASON.value,
             self.item.media_id,
@@ -1934,12 +1947,13 @@ class Season(Media):
         )
         episodes = season_metadata["episodes"]
 
-        if self.progress == 0:
+        current_episode_number = self._current_episode_number()
+        if current_episode_number == 0:
             # start watching from the first episode
             next_episode_number = episodes[0]["episode_number"]
         else:
             next_episode_number = providers.tmdb.find_next_episode(
-                self.progress,
+                current_episode_number,
                 episodes,
             )
 
@@ -1966,8 +1980,15 @@ class Season(Media):
         )
 
     def decrease_progress(self):
-        """Unwatch the current episode of the season."""
-        self.unwatch(self.progress)
+        """Unwatch the current episode of the season.
+
+        Legacy support for progress_edit +/- season controls. Primary season
+        tracking is episode-driven (episode_save and home_watch_next_episode).
+        """
+        current_episode_number = self._current_episode_number()
+        if current_episode_number == 0:
+            return
+        self.unwatch(current_episode_number)
 
     def unwatch(self, episode_number):
         """Unwatch the episode instance."""
