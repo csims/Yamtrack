@@ -4,7 +4,7 @@
     "tailwind:watch": "tailwindcss -i ./src/static/css/input.css -o ./src/static/css/main.css --watch"
   },
   "dependencies": {
-    "@tailwindcss/cli": "^4.1.18",
+    "@tailwindcss/cli": "^4.2.1",
     "tailwindcss": "^4.1.18"
   },
   "engines": {
