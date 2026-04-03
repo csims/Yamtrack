@@ -114,7 +114,7 @@ def collect_creation_changes(new_record, history_model, media_type):
     for field in history_model._meta.get_fields():
         if (
             field.name.startswith("history_")
-            or field.name in ["id"]
+            or field.name == "id"
             or not hasattr(new_record, field.attname)
             or (field.name == "progress" and media_type == MediaTypes.MOVIE.value)
         ):
@@ -282,8 +282,7 @@ def format_description(field_name, old_value, new_value, media_type=None):  # no
             return f"Removed {helpers.minutes_to_hhmm(diff_abs)} of playtime"
 
         unit = (
-            f"{config.get_unit(media_type, short=False).lower()}"
-            f"{pluralize(new_value)}"
+            f"{config.get_unit(media_type, short=False).lower()}{pluralize(new_value)}"
         )
 
         return f"Progress set to {new_value} {unit}"
