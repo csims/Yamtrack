@@ -15,6 +15,7 @@ updates:
     groups:
       python-dev:
         patterns: ["*"]
+        exclude-patterns: ["ruff"]
         update-types: ["minor", "patch"]
         dependency-type: "development"
       python-deps:
