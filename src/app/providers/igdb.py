@@ -70,7 +70,7 @@ def handle_error(error):
                     details,
                 )
         # it can be other error format
-        except (KeyError, AttributeError):
+        except KeyError, AttributeError:
             logger.exception("Unexpected error format from IGDB API")
             raise services.ProviderAPIError(Sources.IGDB.value, error) from None
 
@@ -125,7 +125,7 @@ def external_game(external_id, source=ExternalGameSource.STEAM):
         url = f"{base_url}/external_games"
         query = (
             f'fields game; where uid = "{external_id}" & '
-            f'external_game_source = {source};'
+            f"external_game_source = {source};"
         )
         headers = {
             "Client-ID": settings.IGDB_ID,
@@ -314,7 +314,9 @@ def game(media_id):
         # Check if response is empty (no results found)
         if not response:
             services.raise_not_found_error(
-                Sources.IGDB.value, media_id, "game",
+                Sources.IGDB.value,
+                media_id,
+                "game",
             )
 
         response = response[0]  # response is a list with a single element
@@ -392,6 +394,7 @@ def get_start_date(response):
     try:
         return timezone.datetime.fromtimestamp(
             response["first_release_date"],
+            # TODO(csims): this breaks test_metadata.py after 8pm w/ TZ=America/New_York
             tz=timezone.get_current_timezone(),
         ).strftime("%Y-%m-%d")
     except KeyError:
