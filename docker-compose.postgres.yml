@@ -7,7 +7,6 @@ services:
       - db
       - redis
     environment:
-      - TZ=America/New_York
       - SECRET=longstring
       - REDIS_URL=redis://redis:6379
       - DB_HOST=db

@@ -6,7 +6,6 @@ services:
     depends_on:
       - redis
     environment:
-      - TZ=America/New_York
       - SECRET=longstring
       - REDIS_URL=redis://redis:6379
     volumes:

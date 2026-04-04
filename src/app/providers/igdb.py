@@ -394,7 +394,6 @@ def get_start_date(response):
     try:
         return timezone.datetime.fromtimestamp(
             response["first_release_date"],
-            # TODO(csims): this breaks test_metadata.py after 8pm w/ TZ=America/New_York
             tz=timezone.get_current_timezone(),
         ).strftime("%Y-%m-%d")
     except KeyError:

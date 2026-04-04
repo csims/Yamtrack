@@ -743,8 +743,6 @@ class StatisticsTests(TestCase):
         self.assertIn("March 2025", timeline)  # Anime starts on Mar 1
 
         # Check items in each month
-        # TODO(csims): this breaks after 8pm with TZ=America/New_York b/c it thinks
-        # movie is Jan instead of Feb
         self.assertEqual(len(timeline["January 2025"]), 1)  # Season
         self.assertEqual(len(timeline["February 2025"]), 1)  # Movie
         self.assertEqual(len(timeline["March 2025"]), 1)  # Anime
