@@ -17,7 +17,7 @@ WORKDIR /yamtrack
 
 RUN apk add --no-cache nginx shadow \
     && pip install --no-cache-dir -r /requirements.txt \
-    && pip install --no-cache-dir supervisor==4.2.5 \
+    && pip install --no-cache-dir supervisor==4.3.0 \
     && rm -rf /root/.cache /tmp/* \
     && find /usr/local -type d -name __pycache__ -exec rm -rf {} + \
     && chmod +x /entrypoint.sh \
@@ -36,4 +36,4 @@ EXPOSE 8000
 CMD ["/entrypoint.sh"]
 
 HEALTHCHECK --interval=45s --timeout=15s --start-period=30s --retries=5 \
-  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:8000/health/ || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:8000/health/ || exit 1
