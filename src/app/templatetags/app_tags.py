@@ -326,13 +326,12 @@ def icon(name, is_active, extra_classes="w-5 h-5"):
     content = config.get_svg_icon(name)
     active_class = "text-indigo-400 " if is_active else ""
 
-    svg = base_svg.format(
+    return format_html(
+        base_svg,
         content=content,
         active_class=active_class,
         extra_classes=extra_classes,
     )
-
-    return format_html(svg)
 
 
 @register.filter

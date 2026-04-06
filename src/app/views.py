@@ -153,6 +153,7 @@ def progress_edit(request, media_type, instance_id):
     Note: season +/- operations are currently a legacy path and are not part of
     the primary episode-driven Home TV flow (which uses home_watch_next_episode).
     Kept for backward compatibility and existing tests.
+    TODO: Clean this up later?
     """
     operation = request.POST["operation"]
 
@@ -337,9 +338,7 @@ def season_details(request, source, media_id, title, season_number):  # noqa: AR
     )
 
     current_instance = user_medias[0] if user_medias else None
-    episodes_in_db = (
-        current_instance.episode_watches.all() if current_instance else []
-    )
+    episodes_in_db = current_instance.episode_watches.all() if current_instance else []
 
     if source == Sources.MANUAL.value:
         season_metadata["episodes"] = manual.process_episodes(

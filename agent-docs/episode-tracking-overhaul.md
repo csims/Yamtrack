@@ -164,6 +164,7 @@ Engaged rule:
    - Ensure calendar hides specials + ignored seasons + On hold/Dropped.
    - TODO: Decide whether to fully deprecate season +/- `progress_edit` path now
      that Home is TV-level and season tracking is episode-driven.
+       - Looks like the change was mostly made but left the legacy code hanging around; clean up later?
 
 6) **History/statistics alignment**
    - Decide which models should still use django-simple-history.

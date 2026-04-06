@@ -62,11 +62,11 @@ def source_display(source_name):
     if not info:
         return ""
 
-    html = f"""
+    html = """
         <div class="flex items-center">
-            <img alt="{info["name"]}" class="w-6 h-6 mr-2" src="{info["logo"]}">
-            <h4 class="font-medium">{info["name"]}</h4>
+            <img alt="{name}" class="w-6 h-6 mr-2" src="{logo}">
+            <h4 class="font-medium">{name}</h4>
         </div>
     """
 
-    return format_html(html)
+    return format_html(html, name=info["name"], logo=info["logo"])
