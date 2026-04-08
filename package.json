@@ -9,5 +9,9 @@
   },
   "engines": {
     "node": ">=24"
+  },
+  "devDependencies": {
+    "@lavamoat/allow-scripts": "^4.0.0",
+    "@lavamoat/preinstall-always-fail": "^3.0.0"
   }
 }
