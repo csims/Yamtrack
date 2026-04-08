@@ -4,7 +4,7 @@ from django import template
 from django.conf import settings
 from django.urls import reverse
 from django.utils import formats, timezone
-from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from unidecode import unidecode
 
 from app import config
@@ -326,12 +326,13 @@ def icon(name, is_active, extra_classes="w-5 h-5"):
     content = config.get_svg_icon(name)
     active_class = "text-indigo-400 " if is_active else ""
 
-    return format_html(
-        base_svg,
+    svg = base_svg.format(
         content=content,
         active_class=active_class,
         extra_classes=extra_classes,
     )
+
+    return mark_safe(svg)  # noqa: S308 - TODO: fix this? format_html escapes svg content & breaks things
 
 
 @register.filter
