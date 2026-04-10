@@ -673,6 +673,28 @@ class MediaManagerTests(TestCase):
         manager._annotate_tv_released_episodes(tv_list, timezone.now())
         self.assertEqual(tv_list[0].max_progress, 5)
 
+    def test_annotate_max_progress_for_season_ignores_unknown_air_dates(self):
+        """Season max_progress should ignore unknown-air-date placeholder events."""
+        manager = MediaManager()
+        season_list = list(
+            Season.objects.filter(
+                user=self.user.id,
+                item=self.season1_item,
+            ).select_related(
+                "item",
+            ),
+        )
+
+        Event.objects.create(
+            item=self.season1_item,
+            content_number=13,
+            datetime=datetime.min.replace(tzinfo=UTC),
+        )
+
+        manager.annotate_max_progress(season_list, MediaTypes.SEASON.value)
+
+        self.assertEqual(season_list[0].max_progress, 4)
+
     def test_annotate_tv_released_episodes_home_progress_only_when_enabled(self):
         """Home progress cache should only be set when explicitly enabled."""
         manager = MediaManager()

@@ -48,7 +48,7 @@ class IntegrationTest(StaticLiveServerTestCase):
         expect(self.page.get_by_role("main")).to_contain_text("Breaking Bad")
         self.page.get_by_title("Season 1").click()
         expect(self.page.get_by_role("main")).to_contain_text("Season 1")
-        self.page.locator(".p-2").first.click()
+        self.page.get_by_role("button", name="Track Episode").first.click()
         expect(self.page.get_by_role("main")).to_contain_text("Track Episode")
         self.page.get_by_role("button", name="Air date").click()
         self.page.get_by_role("button", name="Add watch").click()

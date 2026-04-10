@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -121,6 +123,81 @@ class HomeViewTests(TestCase):
             },
         )
         self.assertContains(response, season_url)
+
+    def test_home_view_ignores_unknown_air_date_episodes(self):
+        """Unknown-air-date placeholder events don't keep a finished show on home."""
+        season1_item = Item.objects.create(
+            media_id="273174",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Unknown Date Show",
+            image="http://example.com/image.jpg",
+            season_number=1,
+        )
+        season2_item = Item.objects.create(
+            media_id="273174",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Unknown Date Show",
+            image="http://example.com/image.jpg",
+            season_number=2,
+        )
+        tv_item = Item.objects.create(
+            media_id="273174",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.TV.value,
+            title="Unknown Date Show",
+            image="http://example.com/image.jpg",
+        )
+        tv = TV.objects.create(
+            item=tv_item,
+            user=self.user,
+            status=Status.PLANNING.value,
+        )
+        season1 = Season.objects.create(
+            item=season1_item,
+            user=self.user,
+            related_tv=tv,
+            status=Status.IN_PROGRESS.value,
+        )
+        TV.objects.filter(pk=tv.pk).update(status=Status.IN_PROGRESS.value)
+        tv.status = Status.IN_PROGRESS.value
+
+        for episode_number in range(1, 13):
+            episode_item = Item.objects.create(
+                media_id="273174",
+                source=Sources.TMDB.value,
+                media_type=MediaTypes.EPISODE.value,
+                title="Unknown Date Show",
+                image="http://example.com/image.jpg",
+                season_number=1,
+                episode_number=episode_number,
+            )
+            EpisodeWatch.objects.create(
+                item=episode_item,
+                related_season=season1,
+                watched_at=timezone.now() - timezone.timedelta(days=episode_number),
+            )
+            Event.objects.create(
+                item=season1_item,
+                content_number=episode_number,
+                datetime=timezone.now() - timezone.timedelta(days=episode_number + 20),
+            )
+
+        Event.objects.create(
+            item=season2_item,
+            content_number=1,
+            datetime=datetime.min.replace(tzinfo=UTC),
+        )
+
+        Season.objects.filter(pk=season1.pk).update(status=Status.COMPLETED.value)
+        season1.status = Status.COMPLETED.value
+
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        tv_items = response.context["list_by_type"][MediaTypes.TV.value]["items"]
+        self.assertFalse(any(item.item.media_id == "273174" for item in tv_items))
 
     def test_home_view_with_sort(self):
         """Test the home view with sorting parameter."""

@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from django.apps import apps
 from django.conf import settings
@@ -34,6 +35,7 @@ from app import providers
 from app.mixins import CalendarTriggerMixin
 
 logger = logging.getLogger(__name__)
+UNKNOWN_RELEASE_DATETIME = datetime.min.replace(tzinfo=UTC)
 
 
 @dataclass(frozen=True)
@@ -599,7 +601,11 @@ class MediaManager(models.Manager):
                 continue
 
             all_episode_numbers.add(content_number)
-            if not event_datetime or event_datetime > current_time:
+            if (
+                not event_datetime
+                or event_datetime <= UNKNOWN_RELEASE_DATETIME
+                or event_datetime > current_time
+            ):
                 has_unaired_non_hidden = True
 
         if not all_episode_numbers or has_unaired_non_hidden:
@@ -647,6 +653,7 @@ class MediaManager(models.Manager):
             item__season_number__gt=0,
             item__is_specials_override=False,
             item__is_hidden_override=False,
+            datetime__gt=UNKNOWN_RELEASE_DATETIME,
             datetime__lte=current_time,
             content_number__isnull=False,
         ).select_related("item")
@@ -1012,12 +1019,47 @@ class MediaManager(models.Manager):
             events.models.Event.objects.filter(
                 item=season_item,
                 content_number=episode_number,
+                datetime__gt=UNKNOWN_RELEASE_DATETIME,
                 datetime__lte=current_time,
             )
             .order_by("-datetime")
             .first()
         )
         return matching_event.datetime if matching_event else None
+
+    def _annotate_season_released_episodes(self, season_list, current_datetime):
+        """Annotate seasons with the number of distinctly released episodes."""
+        hidden_episode_map = self._build_hidden_episode_map(season_list)
+        released_numbers_by_season = {}
+        season_by_item_id = {season.item_id: season for season in season_list}
+
+        released_events = events.models.Event.objects.filter(
+            item_id__in=season_by_item_id,
+            content_number__isnull=False,
+            datetime__gt=UNKNOWN_RELEASE_DATETIME,
+            datetime__lte=current_datetime,
+        )
+
+        for event in released_events:
+            season = season_by_item_id.get(event.item_id)
+            if season is None:
+                continue
+
+            hidden_numbers = self._get_hidden_episode_numbers(
+                season.item.media_id,
+                season.item.source,
+                season.item.season_number,
+                hidden_episode_map,
+            )
+            if event.content_number in hidden_numbers:
+                continue
+
+            released_numbers_by_season.setdefault(season.id, set()).add(
+                event.content_number,
+            )
+
+        for season in season_list:
+            season.max_progress = len(released_numbers_by_season.get(season.id, set()))
 
     def _set_tv_home_episode_badge(
         self,
@@ -1051,6 +1093,10 @@ class MediaManager(models.Manager):
         if media_type == MediaTypes.MOVIE.value:
             for media in media_list:
                 media.max_progress = 1
+            return
+
+        if media_type == MediaTypes.SEASON.value:
+            self._annotate_season_released_episodes(media_list, current_datetime)
             return
 
         if media_type == MediaTypes.TV.value:
