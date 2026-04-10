@@ -1,17 +1,123 @@
 @import "tailwindcss" source("../../");
 
+/* Note: keep these in sync with colors in config.py */
+@source inline("text-{emerald,purple,indigo,orange,blue,red,yellow,fuchsia,cyan}-400");
+
 @theme {
   --breakpoint-xs: 30rem;
-  --color-base-100: #2a2f35;
+  /* --color-base-100: #2a2f35;
   --color-base-200: #212529;
-  --color-base-300: #1a1d20;
+  --color-base-300: #1a1d20; */
   --color-base-muted-100: #454d5a;
   --color-base-muted-200: #39404b;
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "Figtree", ui-sans-serif, sans-serif;
+
+  --color-purple: var(--color-indigo-600);
+  --color-purple-content: var(--color-gray-100);
+  --color-green: var(--color-emerald-600);
+  --color-green-content: var(--color-gray-100);
 }
 
 /* https://tailwindcss.com/docs/upgrade-guide#hover-styles-on-mobile */
 @custom-variant hover-tap (&:hover);
 @custom-variant parent-hover-tap (.hover-tap:hover &);
+
+@plugin "daisyui";
+
+@plugin "daisyui/theme" {
+  name: "sunset";
+  default: true;
+  prefersdark: true;
+  color-scheme: "dark";
+  --color-base-100: oklch(25% 0.019 237.69);
+  --color-base-200: oklch(20% 0.019 237.69);
+  --color-base-300: oklch(15% 0.019 237.69);
+  --color-base-content: oklch(77.383% 0.043 245.096);
+  --color-primary: oklch(74.703% 0.158 39.947);
+  --color-primary-content: oklch(14.94% 0.031 39.947);
+  --color-secondary: oklch(72.537% 0.177 2.72);
+  --color-secondary-content: oklch(14.507% 0.035 2.72);
+  --color-accent: var(--color-indigo-600);
+  --color-accent-content: var(--color-gray-100);
+  --color-neutral: var(--color-gray-700);
+  --color-neutral-content: var(--color-white);
+  --color-info: oklch(85.559% 0.085 206.015);
+  --color-info-content: oklch(17.111% 0.017 206.015);
+  --color-success: var(--color-emerald-600);
+  --color-success-content: var(--color-gray-100);
+  --color-warning: var(--color-amber-600);
+  --color-warning-content: var(--color-gray-100);
+  --color-error: var(--color-red-600);
+  --color-error-content: var(--color-gray-100);
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.28125rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 1;
+}
+
+/*** DaisyUI overrides ***/
+
+@media(hover: hover) {
+  .btn:hover:not(.btn-link):not(.btn-ghost) {
+    @supports (color: color-mix(in lab, red, red)) {
+      --btn-bg: color-mix(in oklab, var(--btn-color, var(--color-base-200)), #000 15%);
+    }
+  }
+}
+
+.btn {
+  transition-duration: 0.3s;
+}
+
+/*** Fonts ***/
+
+@font-face {
+  font-family: "Fraunces";
+  src: url("/static/fonts/Fraunces-VariableFont_SOFT,WONK,opsz,wght.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Fraunces";
+  src: url("/static/fonts/Fraunces-Italic-VariableFont_SOFT,WONK,opsz,wght.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Figtree";
+  src: url("/static/fonts/Figtree-VariableFont_wght.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Figtree";
+  src: url("/static/fonts/Figtree-Italic-VariableFont_wght.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/*** Custom styles ***/
+
+body {
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display)
+}
 
 /*** Alpine.js ***/
 

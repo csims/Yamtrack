@@ -4,6 +4,7 @@ from django.utils.http import urlencode
 from app.models import MediaTypes, Sources, Status
 
 # --- Color Constants ---
+# Note: Keep Tailwind colors in sync with safelisted colors in input.css
 COLORS = {
     "emerald": {"text": "text-emerald-400", "hex": "#10b981"},
     "purple": {"text": "text-purple-400", "hex": "#a855f7"},

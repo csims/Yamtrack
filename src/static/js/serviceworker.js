@@ -4,7 +4,11 @@ const urlsToCache = [
   '/static/css/main.css',
   '/static/favicon/android-chrome-192x192.png',
   '/static/favicon/android-chrome-512x512.png',
-  '/static/fonts/roboto-flex.woff2'
+  '/static/fonts/roboto-flex.woff2',
+  '/static/fonts/Figtree-Italic-VariableFont_wght.ttf',
+  '/static/fonts/Figtree-VariableFont_wght.ttf',
+  '/static/fonts/Fraunces-Italic-VariableFont_SOFT,WONK,opsz,wght.ttf',
+  '/static/fonts/Fraunces-VariableFont_SOFT,WONK,opsz,wght.ttf'
 ];
 
 // Install event
