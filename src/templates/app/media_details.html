@@ -17,7 +17,7 @@
            src="{{ media.image }}">
 
       <div x-data="{ trackOpen: false }">
-        <button class="mt-4 p-3 rounded-lg w-full flex items-center text-white transition duration-300 cursor-pointer {% if user_medias %}bg-indigo-600 hover:bg-indigo-700{% else %}bg-gray-600 hover:bg-gray-700{% endif %}"
+        <button class="mt-4 text-base btn btn-lg btn-block {% if user_medias %}btn-accent{% else %}btn-neutral{% endif %}"
                 hx-get="{% media_view_url 'track_modal' media %}"
                 hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}", "instance_id": "{{ current_instance.id }}"}'
                 hx-target="#{% component_id 'track' media current_instance.id %}"
@@ -65,7 +65,7 @@
                @click.away="open = false"
                @keydown.escape.window="open = false">
             <button @click="open = !open"
-                    class="flex items-center space-x-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md transition-colors duration-200 cursor-pointer">
+                    class="btn btn-neutral btn-wide btn-md text-base">
               <span class="text-sm font-medium">{{ media.season_title }}</span>
               <div class="w-4 h-4" :class="{ 'rotate-180': open }">{% include "app/icons/chevron-down.svg" %}</div>
             </button>
@@ -104,7 +104,7 @@
       {# Genres #}
       <div class="flex flex-wrap gap-2 mb-4">
         {% for genre in media.genres %}
-          <span class="px-3 py-1 bg-violet-600 text-white rounded-full text-sm">{{ genre }}</span>
+          <span class="badge badge-accent">{{ genre }}</span>
         {% endfor %}
       </div>
 
@@ -117,7 +117,7 @@
              class="text-gray-300 text-pretty">{{ media.synopsis|linebreaksbr|safe }}</p>
           <button x-show="isClamped"
                   @click="isExpanded = !isExpanded"
-                  class="text-indigo-400 hover:text-indigo-300 text-sm mt-2 focus:outline-none transition-colors cursor-pointer">
+                  class="btn btn-link text-indigo-400 no-underline p-0">
             <span x-text="isExpanded ? 'Show less' : 'Read more'"></span>
           </button>
         </div>
@@ -229,7 +229,7 @@
 
           {% if media_type != MediaTypes.TV.value and media_type != MediaTypes.SEASON.value %}
             <div x-data="{ trackOpen: false }">
-              <button class="p-2  text-white rounded-md bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer"
+              <button class="btn btn-square btn-accent btn-sm"
                       hx-get="{% media_view_url 'track_modal' media %}"
                       hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}", "is_create": true}'
                       hx-target="#{% component_id 'track' media %}"
@@ -377,7 +377,7 @@
       <div class="bg-base-100 p-4 md:p-2 lg:p-4 rounded-lg flex items-center justify-center gap-x-5 md:gap-x-2 lg:gap-x-5">
         {# Custom Lists #}
         <div x-data="{ listsOpen: false }">
-          <button class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition duration-300 cursor-pointer"
+          <button class="btn btn-sm btn-success px-4"
                   title="Add to custom lists"
                   hx-get="{% media_view_url 'lists_modal' media %}"
                   hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"}'
@@ -397,7 +397,7 @@
 
         {# Activity History #}
         <div x-data="{ historyOpen: false }">
-          <button class="px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition duration-300 cursor-pointer"
+          <button class="btn btn-sm btn-warning px-4"
                   title="View your activity history"
                   hx-get="{% media_view_url 'history_modal' media %}"
                   hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"}'
@@ -440,7 +440,7 @@
       {% endif %}
 
       {# Media Details #}
-      <h2 class="text-xl font-bold mb-4">Details</h2>
+      <h2 class="text-xl font-bold mb-4 mt-6">Details</h2>
       <div class="bg-base-100 p-4 rounded-lg text-center md:text-start flex md:block flex-wrap">
         {% if media.details.items %}
           {% for key, value in media.details.items %}
@@ -524,7 +524,7 @@
                       <div x-data="{ trackOpen: false }">
                         <button @click="trackOpen = true"
                                 title="Track Episode"
-                                class="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full transition duration-300 cursor-pointer">
+                                class="btn btn-circle btn-sm btn-accent">
                           {% if episode.history %}
                             {% include "app/icons/eye.svg" with classes="w-4 h-4" %}
                           {% else %}
@@ -538,7 +538,7 @@
 
                       {# Lists #}
                       <div x-data="{ listsOpen: false }">
-                        <button class="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full transition duration-300 cursor-pointer"
+                        <button class="btn btn-circle btn-sm btn-success"
                                 title="Add to custom lists"
                                 hx-get="{% media_view_url 'lists_modal' episode %}"
                                 hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"}'
@@ -560,7 +560,7 @@
 
                       {# History #}
                       <div x-data="{ historyOpen: false }">
-                        <button class="p-2 bg-amber-600 hover:bg-amber-700 text-white rounded-full transition duration-300 cursor-pointer"
+                        <button class="btn btn-circle btn-sm btn-warning"
                                 title="View your activity history"
                                 hx-get="{% media_view_url 'history_modal' episode %}"
                                 hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"}'

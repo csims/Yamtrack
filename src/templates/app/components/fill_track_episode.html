@@ -40,31 +40,6 @@
       {# Episode form #}
       <div class="space-y-4">
 
-        {% if episode.history %}
-          <div>
-            <label class="block text-sm font-medium text-gray-300 mb-3">Previous Watches</label>
-            <div class="max-h-[200px] overflow-y-auto space-y-2">
-
-              {% for entry in episode.history %}
-                <div class="flex items-center justify-between bg-base-muted-200 rounded-md p-3">
-                  <div class="text-sm text-white">{{ entry.watched_at|date_tracker_format|default_if_none:"No date provided" }}</div>
-                  <form method="post"
-                        action="{% url 'media_delete' %}?next={{ request.path }}">
-                    {% csrf_token %}
-                    <input type="hidden" name="instance_id" value="{{ entry.id }}">
-                    <input type="hidden" name="media_type" value="episodewatch">
-                    <button class="text-red-400 hover:text-red-300 transition-colors text-sm px-2 py-1 hover:bg-red-600/20 rounded-md cursor-pointer">
-                      Delete
-                    </button>
-                  </form>
-                </div>
-              {% endfor %}
-            </div>
-          </div>
-
-          <div class="border-t border-gray-600 my-6"></div>
-        {% endif %}
-
         <form method="post"
               action="{% url 'episode_save' %}?next={{ request.path }}">
           {% csrf_token %}
@@ -100,11 +75,35 @@
 
           <div class="flex justify-end-safe gap-3 mt-6">
             <button type="submit"
-                    class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors cursor-pointer">
+                    class="btn btn-accent">
               Add watch
             </button>
           </div>
         </form>
+
+        {% if episode.history %}
+          <div class="border-t border-gray-600 my-6"></div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-3">Previous Watches</label>
+            <div class="max-h-[200px] overflow-y-auto space-y-2">
+
+              {% for entry in episode.history %}
+                <div class="flex items-center justify-between bg-base-muted-200 rounded-md p-3">
+                  <div class="text-sm text-white">{{ entry.watched_at|date_tracker_format|default_if_none:"No date provided" }}</div>
+                  <form method="post"
+                        action="{% url 'media_delete' %}?next={{ request.path }}">
+                    {% csrf_token %}
+                    <input type="hidden" name="instance_id" value="{{ entry.id }}">
+                    <input type="hidden" name="media_type" value="episodewatch">
+                    <button class="btn btn-sm btn-ghost btn-error">
+                      Delete
+                    </button>
+                  </form>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
       </div>
     </div>
   </div>

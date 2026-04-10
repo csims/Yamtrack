@@ -39,7 +39,7 @@
       </div>
     {% endif %}
 
-    <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover-tap:opacity-100{% if user.clickable_media_cards %} pointer-coarse:hidden{% endif %}">
+    <div class="duration-200 absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover-tap:opacity-100{% if user.clickable_media_cards %} pointer-coarse:hidden{% endif %}">
       {% if media.home_season_item %}
         <a href="{{ media.home_season_item|media_url }}" class="absolute inset-0"></a>
       {% else %}
@@ -48,7 +48,7 @@
 
       <div class="relative flex items-center justify-center space-x-2.5">
         {# Track Button #}
-        <button class="p-2.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition-all duration-200 cursor-pointer"
+        <button class="btn btn-circle btn-accent hover:scale-110 duration-300"
                 title="Add to tracker"
                 hx-get="{% media_view_url 'track_modal' media.item %}"
                 hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}", "instance_id": "{{ media.id }}"}'
@@ -57,7 +57,7 @@
                 @click="trackOpen = true">{% include "app/icons/edit.svg" with classes="w-4 h-4" %}</button>
 
         {# Lists Button #}
-        <button class="p-2.5 bg-emerald-600 text-white rounded-full hover:bg-emerald-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-all duration-200 cursor-pointer"
+        <button class="btn btn-circle btn-success hover:scale-110 duration-300"
                 title="Add to custom lists"
                 hx-get="{% media_view_url 'lists_modal' media.item %}"
                 hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"}'
@@ -66,7 +66,7 @@
                 @click="listsOpen = true">{% include "app/icons/list-add.svg" with classes="w-4 h-4" %}</button>
 
         {# History Button #}
-        <button class="p-2.5 bg-amber-600 text-white rounded-full hover:bg-amber-500 hover:scale-110 hover:shadow-[0_0_15px_rgba(245,158,11,0.5)] transition-all duration-200 cursor-pointer"
+        <button class="btn btn-circle btn-warning hover:scale-110 duration-300"
                 title="View your activity history"
                 hx-get="{% media_view_url 'history_modal' media.item %}"
                 hx-vals='{"return_url": "{{ request.get_full_path|urlencode }}"}'
