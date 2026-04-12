@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(name="Reload calendar")
-def reload_calendar(user=None, items_to_process=None):
+def reload_calendar(user=None, items_to_process=None, *, authoritative_reconcile=False):
     """Refresh the calendar with latest dates for all users."""
     if user:
         logger.info("Reloading calendar for user: %s", user.username)
@@ -18,6 +18,7 @@ def reload_calendar(user=None, items_to_process=None):
     return calendar.fetch_releases(
         user=user,
         items_to_process=items_to_process,
+        authoritative_reconcile=authoritative_reconcile,
     )
 
 

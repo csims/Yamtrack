@@ -480,6 +480,60 @@ class ReloadCalendarTaskTests(TestCase):
         self.assertEqual(len(events_bulk), 4)
         self.assertNotIn(2, {event.item.season_number for event in events_bulk})
 
+    @patch("events.calendar.tmdb.tv")
+    @patch("events.calendar.tmdb.tv_with_seasons")
+    @patch("events.calendar.get_tvmaze_episode_map")
+    def test_fetch_releases_authoritative_reconcile_removes_stale_tv_events(
+        self,
+        mock_get_tvmaze_episode_map,
+        mock_tv_with_seasons,
+        mock_tv,
+    ):
+        """Explicit reconcile should remove stale season episode events."""
+        for episode_number in range(1, 14):
+            Event.objects.create(
+                item=self.season_item,
+                content_number=episode_number,
+                datetime=timezone.now() - timezone.timedelta(days=episode_number),
+            )
+
+        mock_tv.return_value = {
+            "related": {
+                "seasons": [
+                    {"season_number": 1, "episodes": list(range(1, 13))},
+                ],
+            },
+            "next_episode_season": None,
+        }
+        mock_tv_with_seasons.return_value = {
+            "season/1": {
+                "image": "http://example.com/season1.jpg",
+                "season_number": 1,
+                "episodes": [
+                    {
+                        "episode_number": episode_number,
+                        "air_date": "2008-01-20",
+                    }
+                    for episode_number in range(1, 13)
+                ],
+                "tvdb_id": None,
+            },
+        }
+        mock_get_tvmaze_episode_map.return_value = {}
+
+        fetch_releases(
+            items_to_process=[self.tv_item],
+            authoritative_reconcile=True,
+        )
+
+        self.assertEqual(
+            Event.objects.filter(item=self.season_item).count(),
+            12,
+        )
+        self.assertFalse(
+            Event.objects.filter(item=self.season_item, content_number=13).exists(),
+        )
+
     @patch("events.calendar.services.get_media_metadata")
     def test_process_other_movie(self, mock_get_media_metadata):
         """Test process_other for a movie."""

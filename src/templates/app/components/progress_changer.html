@@ -3,7 +3,7 @@
 {% if media.item.media_type == MediaTypes.TV.value %}
   <div class="space-y-2">
     <div class="text-xs text-indigo-400 font-medium min-w-[4ch] text-center">
-      {{ media.formatted_progress }} / {{ media.max_progress }} episodes
+      {{ media.home_remaining_count }} remaining
     </div>
 
     {% if media.home_episode_number and media.home_season_item %}

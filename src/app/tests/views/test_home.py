@@ -109,9 +109,10 @@ class HomeViewTests(TestCase):
         tv_list = response.context["list_by_type"][MediaTypes.TV.value]
         self.assertEqual(len(tv_list["items"]), 1)
         self.assertEqual(tv_list["items"][0].progress, 5)
-        self.assertEqual(tv_list["items"][0].max_progress, 8)
+        self.assertEqual(tv_list["items"][0].home_remaining_count, 3)
         self.assertEqual(tv_list["items"][0].home_display_title, "Test TV Show S1 E6")
         self.assertIsNone(tv_list["items"][0].home_episode_badge)
+        self.assertContains(response, "3 remaining")
 
         season_url = reverse(
             "season_details",
@@ -198,6 +199,179 @@ class HomeViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         tv_items = response.context["list_by_type"][MediaTypes.TV.value]["items"]
         self.assertFalse(any(item.item.media_id == "273174" for item in tv_items))
+
+    def test_home_view_hides_show_when_remaining_episodes_are_unknown_date(self):
+        """TV home should hide shows when only unknown-date episodes remain."""
+        watched_episode_count = 20
+        real_dated_episode_count = 20
+        season_item = Item.objects.create(
+            media_id="279388",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Chasing Jade",
+            image="http://example.com/image.jpg",
+            season_number=1,
+        )
+        tv_item = Item.objects.create(
+            media_id="279388",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.TV.value,
+            title="Pursuit of Jade",
+            image="http://example.com/image.jpg",
+        )
+        tv = TV.objects.create(
+            item=tv_item,
+            user=self.user,
+            status=Status.PLANNING.value,
+        )
+        season = Season.objects.create(
+            item=season_item,
+            user=self.user,
+            related_tv=tv,
+            status=Status.IN_PROGRESS.value,
+        )
+        TV.objects.filter(pk=tv.pk).update(status=Status.IN_PROGRESS.value)
+        tv.status = Status.IN_PROGRESS.value
+
+        for episode_number in range(1, 41):
+            episode_item = Item.objects.create(
+                media_id="279388",
+                source=Sources.TMDB.value,
+                media_type=MediaTypes.EPISODE.value,
+                title="Chasing Jade",
+                image="http://example.com/image.jpg",
+                season_number=1,
+                episode_number=episode_number,
+            )
+            if episode_number <= watched_episode_count:
+                EpisodeWatch.objects.create(
+                    item=episode_item,
+                    related_season=season,
+                    watched_at=timezone.now() - timezone.timedelta(days=episode_number),
+                )
+
+            Event.objects.create(
+                item=season_item,
+                content_number=episode_number,
+                datetime=(
+                    timezone.now() - timezone.timedelta(days=episode_number)
+                    if episode_number <= real_dated_episode_count
+                    else datetime.min.replace(tzinfo=UTC)
+                ),
+            )
+
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        tv_items = response.context["list_by_type"][MediaTypes.TV.value]["items"]
+        self.assertFalse(any(item.item.media_id == "279388" for item in tv_items))
+
+    def test_home_view_counts_only_past_aired_or_watched_episodes(self):
+        """TV home should only count watched or past-aired episodes."""
+        watched_episode_count = 17
+        past_aired_episode_count = 19
+        season1_item = Item.objects.create(
+            media_id="949494",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Only Friends",
+            image="http://example.com/image.jpg",
+            season_number=1,
+        )
+        season2_item = Item.objects.create(
+            media_id="949494",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Only Friends",
+            image="http://example.com/image.jpg",
+            season_number=2,
+        )
+        tv_item = Item.objects.create(
+            media_id="949494",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.TV.value,
+            title="Only Friends",
+            image="http://example.com/image.jpg",
+        )
+        tv = TV.objects.create(
+            item=tv_item,
+            user=self.user,
+            status=Status.PLANNING.value,
+        )
+        season1 = Season.objects.create(
+            item=season1_item,
+            user=self.user,
+            related_tv=tv,
+            status=Status.IN_PROGRESS.value,
+        )
+        season2 = Season.objects.create(
+            item=season2_item,
+            user=self.user,
+            related_tv=tv,
+            status=Status.IN_PROGRESS.value,
+        )
+        TV.objects.filter(pk=tv.pk).update(status=Status.IN_PROGRESS.value)
+        tv.status = Status.IN_PROGRESS.value
+
+        for episode_number in range(1, 13):
+            episode_item = Item.objects.create(
+                media_id="949494",
+                source=Sources.TMDB.value,
+                media_type=MediaTypes.EPISODE.value,
+                title="Only Friends",
+                image="http://example.com/image.jpg",
+                season_number=1,
+                episode_number=episode_number,
+            )
+            EpisodeWatch.objects.create(
+                item=episode_item,
+                related_season=season1,
+                watched_at=timezone.now() - timezone.timedelta(days=episode_number),
+            )
+            Event.objects.create(
+                item=season1_item,
+                content_number=episode_number,
+                datetime=timezone.now() - timezone.timedelta(days=episode_number + 30),
+            )
+
+        for episode_number in range(1, 13):
+            episode_item = Item.objects.create(
+                media_id="949494",
+                source=Sources.TMDB.value,
+                media_type=MediaTypes.EPISODE.value,
+                title="Only Friends",
+                image="http://example.com/image.jpg",
+                season_number=2,
+                episode_number=episode_number,
+            )
+            if episode_number <= watched_episode_count - 12:
+                EpisodeWatch.objects.create(
+                    item=episode_item,
+                    related_season=season2,
+                    watched_at=timezone.now() - timezone.timedelta(days=episode_number),
+                )
+
+            Event.objects.create(
+                item=season2_item,
+                content_number=episode_number,
+                datetime=(
+                    timezone.now() - timezone.timedelta(days=episode_number)
+                    if episode_number <= past_aired_episode_count - 12
+                    else timezone.now() + timezone.timedelta(days=episode_number)
+                ),
+            )
+
+        Season.objects.filter(pk=season1.pk).update(status=Status.COMPLETED.value)
+        season1.status = Status.COMPLETED.value
+
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        tv_items = response.context["list_by_type"][MediaTypes.TV.value]["items"]
+        only_friends = next(item for item in tv_items if item.item.media_id == "949494")
+        self.assertEqual(only_friends.progress, 17)
+        self.assertEqual(only_friends.home_remaining_count, 2)
+        self.assertContains(response, "2 remaining")
 
     def test_home_view_with_sort(self):
         """Test the home view with sorting parameter."""

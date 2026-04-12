@@ -196,7 +196,7 @@ class Item(CalendarTriggerMixin, models.Model):
 
         return str(int(latest_item.media_id) + 1)
 
-    def fetch_releases(self, delay):
+    def fetch_releases(self, delay, *, authoritative_reconcile=False):
         """Fetch releases for the item."""
         if self._disable_calendar_triggers:
             return
@@ -231,9 +231,15 @@ class Item(CalendarTriggerMixin, models.Model):
             items_to_process = [self]
 
         if delay:
-            events.tasks.reload_calendar.delay(items_to_process=items_to_process)
+            events.tasks.reload_calendar.delay(
+                items_to_process=items_to_process,
+                authoritative_reconcile=authoritative_reconcile,
+            )
         else:
-            events.tasks.reload_calendar(items_to_process=items_to_process)
+            events.tasks.reload_calendar(
+                items_to_process=items_to_process,
+                authoritative_reconcile=authoritative_reconcile,
+            )
 
 
 class MediaManager(models.Manager):
@@ -537,7 +543,8 @@ class MediaManager(models.Manager):
         return [
             tv
             for tv in media_list
-            if getattr(tv, "is_engaged_home", False) and tv.progress < tv.max_progress
+            if getattr(tv, "is_engaged_home", False)
+            and getattr(tv, "home_remaining_count", 0) > 0
         ]
 
     def annotate_home_tv_entries(self, tv_list, current_time=None):
@@ -564,6 +571,10 @@ class MediaManager(models.Manager):
             hidden_episode_map=hidden_episode_map,
             aired_episode_map=aired_episode_map,
             include_home_progress=True,
+        )
+        self._annotate_tv_display_episode_totals(
+            tv_list,
+            hidden_episode_map=hidden_episode_map,
         )
         self._annotate_next_event(tv_list, hidden_episode_map=hidden_episode_map)
         self._annotate_tv_home_next_episode(
@@ -679,6 +690,47 @@ class MediaManager(models.Manager):
 
         return aired_episode_map
 
+    def _get_tv_dated_episode_map(self, tv_list, hidden_episode_map):
+        """Return real-dated episode numbers keyed by TV id and season number."""
+        if not tv_list:
+            return {}
+
+        tv_by_media_key = {
+            (tv.item.media_id, tv.item.source): tv for tv in tv_list
+        }
+        dated_episode_map = {}
+        dated_events = events.models.Event.objects.filter(
+            item__media_id__in=[tv.item.media_id for tv in tv_list],
+            item__source__in=[tv.item.source for tv in tv_list],
+            item__media_type=MediaTypes.SEASON.value,
+            item__season_number__gt=0,
+            item__is_specials_override=False,
+            item__is_hidden_override=False,
+            datetime__gt=UNKNOWN_RELEASE_DATETIME,
+            content_number__isnull=False,
+        ).select_related("item")
+
+        for event in dated_events:
+            tv = tv_by_media_key.get((event.item.media_id, event.item.source))
+            if tv is None:
+                continue
+
+            season_number = event.item.season_number
+            if event.content_number in hidden_episode_map.get(
+                (tv.item.media_id, tv.item.source, season_number),
+                set(),
+            ):
+                continue
+
+            tv_seasons = dated_episode_map.setdefault(tv.id, {})
+            season_data = tv_seasons.setdefault(
+                season_number,
+                {"item": event.item, "episodes": set()},
+            )
+            season_data["episodes"].add(event.content_number)
+
+        return dated_episode_map
+
     def _get_tv_all_episode_map(self, tv_list, hidden_episode_map):
         """Return all known episode numbers keyed by TV id and season number."""
         if not tv_list:
@@ -718,6 +770,101 @@ class MediaManager(models.Manager):
             season_data["episodes"].add(event.content_number)
 
         return all_episode_map
+
+    def _get_tv_known_episode_item_map(self, tv_list):
+        """Return local episode item numbers keyed by TV id and season number."""
+        if not tv_list:
+            return {}
+
+        tv_by_media_key = {
+            (tv.item.media_id, tv.item.source): tv for tv in tv_list
+        }
+        known_episode_map = {}
+        episode_items = Item.objects.filter(
+            media_id__in=[tv.item.media_id for tv in tv_list],
+            source__in=[tv.item.source for tv in tv_list],
+            media_type=MediaTypes.EPISODE.value,
+            season_number__gt=0,
+            is_hidden_override=False,
+        ).values_list("media_id", "source", "season_number", "episode_number")
+
+        for media_id, source, season_number, episode_number in episode_items:
+            tv = tv_by_media_key.get((media_id, source))
+            if tv is None:
+                continue
+
+            tv_seasons = known_episode_map.setdefault(tv.id, {})
+            season_data = tv_seasons.setdefault(
+                season_number,
+                {"episodes": set()},
+            )
+            season_data["episodes"].add(episode_number)
+
+        return known_episode_map
+
+    def _get_specials_override_numbers(self, media_list):
+        """Return specials-override season numbers keyed by (media_id, source)."""
+        specials_map = {}
+        specials = Item.objects.filter(
+            media_id__in=[media.item.media_id for media in media_list],
+            source__in=[media.item.source for media in media_list],
+            media_type=MediaTypes.SEASON.value,
+            is_specials_override=True,
+        ).values_list("media_id", "source", "season_number")
+
+        for media_id, source, season_number in specials:
+            specials_map.setdefault((media_id, source), set()).add(season_number)
+
+        return specials_map
+
+    def _annotate_tv_display_episode_totals(
+        self,
+        tv_list,
+        hidden_episode_map=None,
+    ):
+        """Annotate TV shows with display totals based on known episode inventory."""
+        hidden_episode_map = hidden_episode_map or {}
+        dated_episode_map = self._get_tv_dated_episode_map(tv_list, hidden_episode_map)
+        specials_override_map = self._get_specials_override_numbers(tv_list)
+
+        for tv in tv_list:
+            seasons = list(tv.seasons.all())
+            seasons_by_number = {
+                season.item.season_number: season for season in seasons
+            }
+            tracked_season_numbers, ignored_season_numbers = (
+                self._get_tv_tracked_and_ignored_season_numbers(
+                    seasons,
+                )
+            )
+            specials_override_numbers = specials_override_map.get(
+                (tv.item.media_id, tv.item.source),
+                set(),
+            )
+            season_numbers = tracked_season_numbers | set(
+                dated_episode_map.get(tv.id, {}),
+            )
+
+            total_known = 0
+            for season_number in season_numbers:
+                if (
+                    season_number == 0
+                    or season_number in ignored_season_numbers
+                    or season_number in specials_override_numbers
+                ):
+                    continue
+
+                dated_numbers = (
+                    dated_episode_map.get(tv.id, {})
+                    .get(season_number, {"episodes": set()})
+                    .get("episodes", set())
+                )
+                watched_numbers = self._get_visible_watched_numbers_for_season(
+                    seasons_by_number.get(season_number),
+                )
+                total_known += len(watched_numbers | dated_numbers)
+
+            tv.max_progress = total_known
 
     def _annotate_next_event(self, media_list, hidden_episode_map=None):
         """Annotate next_event for media items."""
@@ -927,6 +1074,8 @@ class MediaManager(models.Manager):
 
     def _get_visible_watched_numbers_for_season(self, season):
         """Return visible watched episode numbers for a season."""
+        if season is None:
+            return set()
         return {
             watch.item.episode_number
             for watch in season.episode_watches.all()
@@ -1027,21 +1176,30 @@ class MediaManager(models.Manager):
         )
         return matching_event.datetime if matching_event else None
 
-    def _annotate_season_released_episodes(self, season_list, current_datetime):
-        """Annotate seasons with the number of distinctly released episodes."""
-        hidden_episode_map = self._build_hidden_episode_map(season_list)
-        released_numbers_by_season = {}
-        season_by_item_id = {season.item_id: season for season in season_list}
+    def _get_visible_season_event_numbers(
+        self,
+        season_by_item_id,
+        hidden_episode_map,
+        *,
+        after_datetime=None,
+        before_or_equal_datetime=None,
+    ):
+        """Return visible event episode numbers keyed by season id."""
+        event_filters = {
+            "item_id__in": season_by_item_id,
+            "content_number__isnull": False,
+        }
+        if after_datetime is not None:
+            event_filters["datetime__gt"] = after_datetime
+        if before_or_equal_datetime is not None:
+            event_filters["datetime__lte"] = before_or_equal_datetime
 
-        released_events = events.models.Event.objects.filter(
-            item_id__in=season_by_item_id,
-            content_number__isnull=False,
-            datetime__gt=UNKNOWN_RELEASE_DATETIME,
-            datetime__lte=current_datetime,
-        )
-
-        for event in released_events:
-            season = season_by_item_id.get(event.item_id)
+        numbers_by_season = {}
+        event_numbers = events.models.Event.objects.filter(
+            **event_filters,
+        ).values_list("item_id", "content_number")
+        for item_id, content_number in event_numbers:
+            season = season_by_item_id.get(item_id)
             if season is None:
                 continue
 
@@ -1051,15 +1209,36 @@ class MediaManager(models.Manager):
                 season.item.season_number,
                 hidden_episode_map,
             )
-            if event.content_number in hidden_numbers:
+            if content_number in hidden_numbers:
                 continue
 
-            released_numbers_by_season.setdefault(season.id, set()).add(
-                event.content_number,
-            )
+            numbers_by_season.setdefault(season.id, set()).add(content_number)
+
+        return numbers_by_season
+
+    def _annotate_season_episode_counts(self, season_list, current_datetime):
+        """Annotate seasons with display and released episode counts."""
+        hidden_episode_map = self._build_hidden_episode_map(season_list)
+        season_by_item_id = {season.item_id: season for season in season_list}
+        released_numbers_by_season = self._get_visible_season_event_numbers(
+            season_by_item_id,
+            hidden_episode_map,
+            after_datetime=UNKNOWN_RELEASE_DATETIME,
+            before_or_equal_datetime=current_datetime,
+        )
+        dated_event_numbers_by_season = self._get_visible_season_event_numbers(
+            season_by_item_id,
+            hidden_episode_map,
+            after_datetime=UNKNOWN_RELEASE_DATETIME,
+        )
 
         for season in season_list:
-            season.max_progress = len(released_numbers_by_season.get(season.id, set()))
+            season.released_max_progress = len(
+                released_numbers_by_season.get(season.id, set()),
+            )
+            dated_numbers = dated_event_numbers_by_season.get(season.id, set())
+            watched_numbers = self._get_visible_watched_numbers_for_season(season)
+            season.max_progress = len(watched_numbers | dated_numbers)
 
     def _set_tv_home_episode_badge(
         self,
@@ -1096,11 +1275,15 @@ class MediaManager(models.Manager):
             return
 
         if media_type == MediaTypes.SEASON.value:
-            self._annotate_season_released_episodes(media_list, current_datetime)
+            self._annotate_season_episode_counts(media_list, current_datetime)
             return
 
         if media_type == MediaTypes.TV.value:
-            self._annotate_tv_released_episodes(media_list, current_datetime)
+            hidden_episode_map = self._build_hidden_episode_map(media_list)
+            self._annotate_tv_display_episode_totals(
+                media_list,
+                hidden_episode_map=hidden_episode_map,
+            )
             return
 
         # For other media types, calculate max_progress from events
@@ -1146,31 +1329,75 @@ class MediaManager(models.Manager):
 
         for tv in tv_list:
             seasons = list(tv.seasons.all())
-            _, ignored_season_numbers = self._get_tv_tracked_and_ignored_season_numbers(
-                seasons,
+            tracked_season_numbers, ignored_season_numbers = (
+                self._get_tv_tracked_and_ignored_season_numbers(seasons)
             )
             aired_episodes = self._get_tv_aired_episode_keys(
                 tv.id,
                 aired_episode_map,
+                tracked_season_numbers,
                 ignored_season_numbers,
             )
-            watched_episodes = self._get_tv_watched_aired_episode_keys(
-                tv,
-                seasons,
-                aired_episodes,
-                hidden_episode_map,
-            )
-            tv.max_progress = len(aired_episodes)
+            tv.released_max_progress = len(aired_episodes)
             if include_home_progress:
+                home_aired_episodes = self._get_tv_home_aired_episode_keys(
+                    tv.id,
+                    aired_episode_map,
+                    ignored_season_numbers,
+                )
+                watched_episodes = self._get_visible_tv_watched_episode_keys(seasons)
                 tv._home_progress = len(watched_episodes)
+                tv._home_max_progress = len(watched_episodes | home_aired_episodes)
+                tv.home_remaining_count = len(home_aired_episodes - watched_episodes)
 
     def _get_tv_aired_episode_keys(
         self,
         tv_id,
         aired_episode_map,
+        tracked_season_numbers,
         ignored_season_numbers,
     ):
-        """Return aired episode keys for non-ignored seasons."""
+        """Return aired episode keys for tracked, non-ignored seasons."""
+        aired_episodes = set()
+        for season_number, season_data in aired_episode_map.get(tv_id, {}).items():
+            if (
+                season_number not in tracked_season_numbers
+                or season_number in ignored_season_numbers
+            ):
+                continue
+            aired_episodes.update(
+                (season_number, episode_number)
+                for episode_number in season_data["episodes"]
+            )
+        return aired_episodes
+
+    def _get_visible_tv_watched_episode_keys(self, seasons):
+        """Return visible watched episode keys for tracked non-special seasons."""
+        watched_episodes = set()
+        for season in seasons:
+            if (
+                season.item.season_number == 0
+                or season.item.is_specials_override
+                or season.is_ignored
+            ):
+                continue
+
+            watched_episodes.update(
+                {
+                    (season.item.season_number, watch.item.episode_number)
+                    for watch in season.episode_watches.all()
+                    if not watch.item.is_hidden_override
+                },
+            )
+        return watched_episodes
+
+    def _get_tv_home_aired_episode_keys(
+        self,
+        tv_id,
+        aired_episode_map,
+        ignored_season_numbers,
+    ):
+        """Return aired episode keys for visible seasons on the home page."""
         aired_episodes = set()
         for season_number, season_data in aired_episode_map.get(tv_id, {}).items():
             if season_number in ignored_season_numbers:
@@ -1180,35 +1407,6 @@ class MediaManager(models.Manager):
                 for episode_number in season_data["episodes"]
             )
         return aired_episodes
-
-    def _get_tv_watched_aired_episode_keys(
-        self,
-        tv,
-        seasons,
-        aired_episodes,
-        hidden_episode_map,
-    ):
-        """Return watched aired episode keys excluding hidden episodes."""
-        watched_episodes = set()
-        for season in seasons:
-            hidden_numbers = self._get_hidden_episode_numbers(
-                tv.item.media_id,
-                tv.item.source,
-                season.item.season_number,
-                hidden_episode_map,
-            )
-            for watch in season.episode_watches.all():
-                if watch.item.is_hidden_override:
-                    continue
-                if watch.item.episode_number in hidden_numbers:
-                    continue
-                episode_key = (
-                    season.item.season_number,
-                    watch.item.episode_number,
-                )
-                if episode_key in aired_episodes:
-                    watched_episodes.add(episode_key)
-        return watched_episodes
 
     def fetch_media_for_items(self, media_types, item_ids, user, status_filter=None):
         """Fetch media objects for given items, optionally filtering by status.

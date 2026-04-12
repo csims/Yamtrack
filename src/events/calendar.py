@@ -15,7 +15,7 @@ from events.models import Event, SentinelDatetime
 logger = logging.getLogger(__name__)
 
 
-def fetch_releases(user=None, items_to_process=None):
+def fetch_releases(user=None, items_to_process=None, *, authoritative_reconcile=False):
     """Fetch and process releases for the calendar."""
     if items_to_process and items_to_process[0].source == Sources.MANUAL.value:
         return "Manual sources are not processed"
@@ -24,14 +24,17 @@ def fetch_releases(user=None, items_to_process=None):
     if not items_to_process:
         return "No items to process"
 
-    events_bulk = process_items(items_to_process)
+    events_bulk = process_items(
+        items_to_process,
+        authoritative_reconcile=authoritative_reconcile,
+    )
     items_updated = save_events(events_bulk)
     cleanup_invalid_events(events_bulk)
 
     return generate_final_message(items_to_process, items_updated)
 
 
-def process_items(items_to_process):
+def process_items(items_to_process, *, authoritative_reconcile=False):
     """Process items and categorize them."""
     events_bulk = []
     anime_to_process = []
@@ -40,7 +43,10 @@ def process_items(items_to_process):
         if item.media_type == MediaTypes.ANIME.value:
             anime_to_process.append(item)
         elif item.media_type == MediaTypes.TV.value:
-            process_tv(item, events_bulk)
+            if authoritative_reconcile:
+                process_tv(item, events_bulk, authoritative_reconcile=True)
+            else:
+                process_tv(item, events_bulk)
         elif item.media_type == MediaTypes.COMIC.value:
             process_comic(item, events_bulk)
         else:
@@ -393,7 +399,7 @@ def get_anime_schedule_bulk(media_ids):
     return all_data
 
 
-def process_tv(tv_item, events_bulk):
+def process_tv(tv_item, events_bulk, *, authoritative_reconcile=False):
     """Process TV item and create events for all seasons and episodes.
 
     Only processes:
@@ -404,7 +410,10 @@ def process_tv(tv_item, events_bulk):
 
     try:
         # Get TV metadata and identify seasons to process
-        seasons_to_process = get_seasons_to_process(tv_item)
+        seasons_to_process = get_seasons_to_process(
+            tv_item,
+            authoritative_reconcile=authoritative_reconcile,
+        )
 
         if not seasons_to_process:
             logger.info("%s - No seasons need processing", tv_item)
@@ -422,7 +431,7 @@ def process_tv(tv_item, events_bulk):
         logger.exception("Error processing %s", tv_item)
 
 
-def get_seasons_to_process(tv_item):
+def get_seasons_to_process(tv_item, *, authoritative_reconcile=False):
     """Identify which seasons of a TV show need to be processed."""
     tv_metadata = tmdb.tv(tv_item.media_id)
 
@@ -449,6 +458,14 @@ def get_seasons_to_process(tv_item):
     if not season_numbers:
         logger.warning("No valid seasons found for TV show: %s", tv_item)
         return []
+
+    if authoritative_reconcile:
+        logger.info(
+            "%s - Authoritative reconcile processing %d seasons",
+            tv_item,
+            len(season_numbers),
+        )
+        return season_numbers
 
     next_episode_season = tv_metadata.get("next_episode_season")
 
