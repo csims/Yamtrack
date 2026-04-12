@@ -2,7 +2,7 @@ coverage==7.13.5
 djlint==1.36.4
 fakeredis==2.34.1
 honcho==2.0.0
-lefthook==2.1.4
+lefthook==2.1.5
 pytest-django==4.12.0
 pytest-playwright==0.7.2
 ruff==0.15.9
