@@ -310,13 +310,13 @@ def media_details(request, source, media_type, media_id, title):  # noqa: ARG001
         "media_type": media_type,
         "user_medias": user_medias,
         "current_instance": current_instance,
+        "page_url": request.get_full_path(),
     }
     return render(request, "app/media_details.html", context)
 
 
-@require_GET
-def season_details(request, source, media_id, title, season_number):  # noqa: ARG001 For URL
-    """Return the details page for a season."""
+def _build_season_details_context(request, source, media_id, season_number):
+    """Build the season details context for full-page and fragment renders."""
     tv_with_seasons_metadata = services.get_media_metadata(
         "tv_with_seasons",
         media_id,
@@ -371,7 +371,6 @@ def season_details(request, source, media_id, title, season_number):  # noqa: AR
         if visible_episode_total:
             current_instance.max_progress = visible_episode_total
 
-    # Enrich related items with user tracking data
     if season_metadata.get("related"):
         for section_name, related_items in season_metadata["related"].items():
             if related_items:
@@ -382,13 +381,54 @@ def season_details(request, source, media_id, title, season_number):  # noqa: AR
                     )
                 )
 
-    context = {
+    return {
         "media": season_metadata,
         "tv": tv_with_seasons_metadata,
         "media_type": MediaTypes.SEASON.value,
         "user_medias": user_medias,
         "current_instance": current_instance,
+        "page_url": request.GET.get("next") or request.get_full_path(),
     }
+
+
+def _render_season_episode_update(
+    request,
+    source,
+    media_id,
+    season_number,
+    episode_number,
+):
+    """Render the updated season fragments after an episode watch change."""
+    context = _build_season_details_context(
+        request,
+        source,
+        media_id,
+        season_number,
+    )
+    episode = next(
+        (
+            item
+            for item in context["media"]["episodes"]
+            if int(item["episode_number"]) == int(episode_number)
+        ),
+        None,
+    )
+    if episode is None:
+        return HttpResponseBadRequest("Episode not found")
+
+    context["episode"] = episode
+    return render(request, "app/components/season_episode_update.html", context)
+
+
+@require_GET
+def season_details(request, source, media_id, title, season_number):  # noqa: ARG001 For URL
+    """Return the details page for a season."""
+    context = _build_season_details_context(
+        request,
+        source,
+        media_id,
+        season_number,
+    )
     return render(request, "app/media_details.html", context)
 
 
@@ -765,6 +805,20 @@ def media_delete(request):
     except model.DoesNotExist:
         logger.warning("The %s was already deleted before.", media_type)
 
+    if request.headers.get("HX-Request") and is_episode_watch_type(media_type):
+        media_id = request.POST.get("media_id")
+        source = request.POST.get("source")
+        season_number = request.POST.get("season_number")
+        episode_number = request.POST.get("episode_number")
+        if media_id and source and season_number and episode_number:
+            return _render_season_episode_update(
+                request,
+                source,
+                media_id,
+                int(season_number),
+                int(episode_number),
+            )
+
     return helpers.redirect_back(request)
 
 
@@ -835,6 +889,15 @@ def episode_save(request):
                 "Failed to refresh release events for %s after episode watch",
                 related_season.item,
             )
+
+    if request.headers.get("HX-Request"):
+        return _render_season_episode_update(
+            request,
+            source,
+            media_id,
+            season_number,
+            episode_number,
+        )
 
     return helpers.redirect_back(request)
 

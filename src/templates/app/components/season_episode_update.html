@@ -1,0 +1,3 @@
+{% include "app/components/media_details_episode_row.html" with request=request media=media episode=episode csrf_token=csrf_token TRACK_TIME=TRACK_TIME %}
+{% include "app/components/media_details_track_status.html" with media=media user_medias=user_medias current_instance=current_instance request=request csrf_token=csrf_token oob="true" %}
+{% include "app/components/media_details_tracking_sidebar.html" with media=media media_type=media_type user_medias=user_medias current_instance=current_instance request=request csrf_token=csrf_token oob="true" %}

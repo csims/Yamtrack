@@ -1,4 +1,5 @@
 import datetime
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
@@ -236,6 +237,162 @@ class DeleteMedia(TestCase):
             0,
         )
 
+
+class EpisodeHtmxCrudTests(TestCase):
+    """Test HTMX episode tracking updates on the season details page."""
+
+    def setUp(self):
+        """Create a user, log in, and create a season."""
+        self.credentials = {"username": "test", "password": "12345"}
+        self.user = get_user_model().objects.create_user(**self.credentials)
+        self.client.login(**self.credentials)
+
+        self.season_item = Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Friends",
+            image="http://example.com/season.jpg",
+            season_number=1,
+        )
+        self.season = Season.objects.create(
+            item=self.season_item,
+            user=self.user,
+            status=Status.IN_PROGRESS.value,
+        )
+
+        self.episode_item = Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            title="The Pilot",
+            image="http://example.com/episode.jpg",
+            season_number=1,
+            episode_number=1,
+        )
+        self.episode = EpisodeWatch.objects.create(
+            item=self.episode_item,
+            related_season=self.season,
+            watched_at=datetime.datetime(2023, 5, 1, 0, 0, tzinfo=datetime.UTC),
+        )
+
+    @staticmethod
+    def _mock_season_metadata():
+        return {
+            "title": "Friends",
+            "media_id": "1668",
+            "source": Sources.TMDB.value,
+            "media_type": MediaTypes.TV.value,
+            "image": "http://example.com/tv.jpg",
+            "season/1": {
+                "title": "Friends Season 1",
+                "media_id": "1668",
+                "media_type": MediaTypes.SEASON.value,
+                "source": Sources.TMDB.value,
+                "image": "http://example.com/season.jpg",
+                "season_number": 1,
+                "episodes": [],
+            },
+        }
+
+    @staticmethod
+    def _mock_processed_episodes():
+        watched_at = datetime.datetime(2023, 6, 1, 0, 0, tzinfo=datetime.UTC)
+        return [
+            {
+                "media_id": "1668",
+                "source": Sources.TMDB.value,
+                "media_type": MediaTypes.EPISODE.value,
+                "season_number": 1,
+                "episode_number": 1,
+                "title": "The Pilot",
+                "image": "http://example.com/episode.jpg",
+                "air_date": "2023-01-01",
+                "runtime": "22m",
+                "overview": "Pilot episode overview.",
+                "history": [
+                    {
+                        "id": 1,
+                        "watched_at": watched_at,
+                    },
+                ],
+            },
+        ]
+
+    @patch("app.models.Item.fetch_releases")
+    @patch("app.views.tmdb.process_episodes")
+    @patch("app.views.services.get_media_metadata")
+    def test_episode_save_htmx_returns_updated_fragments(
+        self,
+        mock_get_metadata,
+        mock_process_episodes,
+        mock_fetch_releases,
+    ):
+        """HTMX episode save should return row and season fragment updates."""
+        mock_get_metadata.return_value = self._mock_season_metadata()
+        mock_process_episodes.return_value = self._mock_processed_episodes()
+        mock_fetch_releases.return_value = None
+
+        response = self.client.post(
+            reverse("episode_save") + "?next=/season",
+            data={
+                "media_id": "1668",
+                "season_number": 1,
+                "episode_number": 1,
+                "source": Sources.TMDB.value,
+                "watched_at": "2023-06-01T00:00",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="episode-row-episode-1668-1-1"')
+        self.assertContains(response, 'id="season-track-status-season-1668-1"')
+        self.assertContains(response, 'hx-swap-oob="outerHTML"', count=2)
+        self.assertContains(response, 'hx-post="/episode_save?next=/season"')
+        self.assertTrue(
+            EpisodeWatch.objects.filter(
+                related_season__user=self.user,
+                item__episode_number=1,
+            ).exists(),
+        )
+
+    @patch("app.views.tmdb.process_episodes")
+    @patch("app.views.services.get_media_metadata")
+    def test_episode_delete_htmx_returns_updated_fragments(
+        self,
+        mock_get_metadata,
+        mock_process_episodes,
+    ):
+        """HTMX episode delete should return row and season fragment updates."""
+        mock_get_metadata.return_value = self._mock_season_metadata()
+        mock_process_episodes.return_value = self._mock_processed_episodes()
+
+        watch = EpisodeWatch.objects.create(
+            item=self.episode_item,
+            related_season=self.season,
+            watched_at=datetime.datetime(2023, 6, 1, 0, 0, tzinfo=datetime.UTC),
+        )
+
+        response = self.client.post(
+            reverse("media_delete") + "?next=/season",
+            data={
+                "instance_id": watch.id,
+                "media_type": "episodewatch",
+                "media_id": "1668",
+                "season_number": 1,
+                "source": Sources.TMDB.value,
+                "episode_number": 1,
+            },
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="episode-row-episode-1668-1-1"')
+        self.assertContains(response, 'id="season-tracking-sidebar-season-1668-1"')
+        self.assertContains(response, 'hx-swap-oob="outerHTML"', count=2)
+        self.assertFalse(EpisodeWatch.objects.filter(pk=watch.pk).exists())
+
     def test_unwatch_episode(self):
         """Test unwatching of an episode through views."""
         self.client.post(
@@ -250,4 +407,3 @@ class DeleteMedia(TestCase):
             EpisodeWatch.objects.filter(related_season__user=self.user).count(),
             0,
         )
-

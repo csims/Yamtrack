@@ -1,0 +1,34 @@
+{% load app_tags %}
+
+<div id="{% component_id 'season-track-status' media %}"
+     {% if oob %}hx-swap-oob="outerHTML"{% endif %}>
+  <div x-data="{ trackOpen: false }">
+    <button class="mt-4 text-base btn btn-lg btn-block {% if user_medias %}btn-accent{% else %}btn-neutral{% endif %}"
+            hx-get="{% media_view_url 'track_modal' media %}"
+            hx-vals='{"return_url": "{{ page_url|urlencode }}", "instance_id": "{{ current_instance.id }}"}'
+            hx-target="#{% component_id 'track' media current_instance.id %}"
+            hx-trigger="click"
+            @click="trackOpen = true">
+      <div class="flex-1 text-center font-medium">
+        {% if user_medias %}
+          {{ current_instance.status|media_status_readable }}
+        {% else %}
+          Add to tracker
+        {% endif %}
+      </div>
+
+      <div class="h-5 mx-2 border-l border-white/30"></div>
+      {% include "app/icons/edit.svg" with classes="w-5 h-5 shrink-0" %}
+    </button>
+
+    <div x-show="trackOpen"
+         @keydown.escape.window="trackOpen = false"
+         class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="w-152 max-h-[90vh] px-4 md:px-0 relative z-60"
+           @click.outside="trackOpen = false"
+           @click.stop>
+        <div id="{% component_id 'track' media current_instance.id %}"></div>
+      </div>
+    </div>
+  </div>
+</div>
