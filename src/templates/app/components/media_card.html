@@ -4,10 +4,8 @@
      x-data="{ trackOpen: false, listsOpen: false, historyOpen: false }">
   <div class="relative">
     <a href="{{ item|media_url }}" class="relative overflow-clip bg-base-100">
-      <div class="absolute bg-cover blur-sm contain h-full left-0 top-0 w-full"
-          style="background-image: url('{{ item.image }}')"></div>
       <img alt="{{ title }}"
-          class="lazyload w-full object-contain {% if from_grid %}aspect-2/3{% else %}h-48{% endif %} z-1 relative"
+          class="lazyload w-full {% if item.image == IMG_NONE %}object-contain{% else %}object-cover{% endif %} {% if from_grid %}aspect-2/3{% else %}aspect-2/3{% endif %} z-1 relative"
           data-src="{{ item.image }}"
           src="{{ IMG_NONE }}">
     </a>

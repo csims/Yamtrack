@@ -2567,6 +2567,9 @@
       max-width: 96rem;
     }
   }
+  .m-auto {
+    margin: auto;
+  }
   .filter {
     @layer daisyui.l1.l2.l3 {
       display: flex;
