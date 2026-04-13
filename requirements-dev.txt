@@ -1,6 +1,6 @@
 coverage==7.13.5
 djlint==1.36.4
-fakeredis==2.34.1
+fakeredis==2.35.1
 honcho==2.0.0
 lefthook==2.1.5
 pytest-django==4.12.0
