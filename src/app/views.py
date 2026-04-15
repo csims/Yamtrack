@@ -22,7 +22,6 @@ from app.forms import EpisodeForm, ManualItemForm, get_form_class
 from app.models import (
     TV,
     BasicMedia,
-    EpisodeWatch,
     Item,
     MediaTypes,
     Season,
@@ -34,19 +33,6 @@ from app.templatetags import app_tags
 from users.models import HomeSortChoices, MediaSortChoices, MediaStatusChoices
 
 logger = logging.getLogger(__name__)
-
-
-def history_delete_media_type(media_type):
-    """Return the delete-target type for history entries."""
-    if media_type == MediaTypes.EPISODE.value:
-        return "episodewatch"
-    return media_type
-
-
-def is_episode_watch_type(media_type):
-    """Return whether the media type maps to EpisodeWatch rows."""
-    return media_type in {MediaTypes.EPISODE.value, "episodewatch"}
-
 
 @require_GET
 def home(request):
@@ -120,7 +106,7 @@ def home_watch_next_episode(request, instance_id):
     if watch_on == "air_date" and tv.home_episode_air_datetime:
         watched_at = tv.home_episode_air_datetime
 
-    season.watch(tv.home_episode_number, watched_at, source="manual")
+    season.watch(tv.home_episode_number, watched_at)
     BasicMedia.objects.maybe_mark_season_completed(season)
 
     refreshed_tv = BasicMedia.objects.get_media_prefetch(
@@ -166,9 +152,9 @@ def progress_edit(request, media_type, instance_id):
         media.decrease_progress()
 
     if media_type == MediaTypes.SEASON.value:
-        # Legacy season +/- path: clear prefetch cache to get updated watches.
+        # Legacy season +/- path: clear prefetch cache to get updated episodes.
         media.refresh_from_db()
-        prefetch_related_objects([media], "episode_watches")
+        prefetch_related_objects([media], "episodes")
 
     context = {
         "media": media,
@@ -334,7 +320,7 @@ def _build_season_details_context(request, source, media_id, season_number):
     )
 
     current_instance = user_medias[0] if user_medias else None
-    episodes_in_db = current_instance.episode_watches.all() if current_instance else []
+    episodes_in_db = current_instance.episodes.all() if current_instance else []
 
     if source == Sources.MANUAL.value:
         season_metadata["episodes"] = manual.process_episodes(
@@ -788,24 +774,18 @@ def media_delete(request):
     model = apps.get_model(app_label="app", model_name=media_type)
 
     try:
-        if is_episode_watch_type(media_type):
-            media = EpisodeWatch.objects.get(
-                id=instance_id,
-                related_season__user=request.user,
-            )
-        else:
-            media = BasicMedia.objects.get_media(
-                request.user,
-                media_type,
-                instance_id,
-            )
+        media = BasicMedia.objects.get_media(
+            request.user,
+            media_type,
+            instance_id,
+        )
         media.delete()
         logger.info("%s deleted successfully.", media)
 
     except model.DoesNotExist:
         logger.warning("The %s was already deleted before.", media_type)
 
-    if request.headers.get("HX-Request") and is_episode_watch_type(media_type):
+    if request.headers.get("HX-Request") and media_type == MediaTypes.EPISODE.value:
         media_id = request.POST.get("media_id")
         source = request.POST.get("source")
         season_number = request.POST.get("season_number")
@@ -874,8 +854,7 @@ def episode_save(request):
 
     related_season.watch(
         episode_number,
-        form.cleaned_data["watched_at"],
-        source="manual",
+        form.cleaned_data["end_date"],
     )
 
     has_episode_events = related_season.item.event_set.filter(
@@ -949,7 +928,6 @@ def create_entry(request):
 
     # Update the media instance
     media = media_form.save(commit=False)
-    # Certain media types (like EpisodeWatch / Episode) don't have a user FK.
     if hasattr(media, "user_id"):
         # Assign FK id directly to avoid lazy user resolution in tests.
         media.user_id = request.user.pk
@@ -1038,60 +1016,6 @@ def history_modal(
     episode_number=None,
 ):
     """Return the history page for a media item."""
-    if media_type == MediaTypes.EPISODE.value:
-        if season_number is None or episode_number is None:
-            return render(
-                request,
-                "app/components/fill_history.html",
-                {
-                    "media_type": media_type,
-                    "media_type_for_delete": history_delete_media_type(media_type),
-                    "timeline": [],
-                    "total_medias": 0,
-                    "return_url": request.GET["return_url"],
-                },
-            )
-
-        episode_watches = (
-            EpisodeWatch.objects.filter(
-                related_season__user=request.user,
-                item__media_id=media_id,
-                item__season_number=season_number,
-                item__episode_number=episode_number,
-            )
-            .select_related("item")
-            .order_by("-watched_at", "-created_at")
-        )
-
-        timeline_entries = []
-        for watch in episode_watches:
-            if watch.watched_at:
-                description = (
-                    f"Watched on {app_tags.date_tracker_format(watch.watched_at)}"
-                )
-            else:
-                description = "Watched"
-
-            timeline_entries.append(
-                {
-                    "id": watch.id,
-                    "date": watch.watched_at or watch.created_at,
-                    "changes": [{"description": description}],
-                },
-            )
-
-        return render(
-            request,
-            "app/components/fill_history.html",
-            {
-                "media_type": media_type,
-                "media_type_for_delete": history_delete_media_type(media_type),
-                "timeline": timeline_entries,
-                "total_medias": 1,
-                "return_url": request.GET["return_url"],
-            },
-        )
-
     user_medias = BasicMedia.objects.filter_media(
         request.user,
         media_id,
@@ -1118,7 +1042,6 @@ def history_modal(
         "app/components/fill_history.html",
         {
             "media_type": media_type,
-            "media_type_for_delete": history_delete_media_type(media_type),
             "timeline": timeline_entries,
             "total_medias": total_medias,
             "return_url": request.GET["return_url"],
@@ -1129,22 +1052,6 @@ def history_modal(
 @require_http_methods(["DELETE"])
 def delete_history_record(request, media_type, history_id):
     """Delete a specific history record."""
-    if is_episode_watch_type(media_type):
-        try:
-            EpisodeWatch.objects.get(
-                id=history_id,
-                related_season__user=request.user,
-            ).delete()
-            logger.info("Deleted episode watch record %s", str(history_id))
-            return HttpResponse()
-        except EpisodeWatch.DoesNotExist:
-            logger.exception(
-                "Episode watch record %s not found for user %s",
-                str(history_id),
-                str(request.user),
-            )
-            return HttpResponse("Record not found", status=404)
-
     try:
         historical_model = apps.get_model(
             app_label="app",

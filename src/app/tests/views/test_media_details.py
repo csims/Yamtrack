@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from app.models import (
     TV,
-    EpisodeWatch,
+    Episode,
     Item,
     MediaTypes,
     Season,
@@ -167,7 +167,7 @@ class MediaDetailsViewTests(TestCase):
                 season_number=1,
                 episode_number=episode_number,
             )
-            EpisodeWatch.objects.create(
+            Episode.objects.create(
                 item=episode_item,
                 related_season=season,
             )
@@ -264,7 +264,7 @@ class MediaDetailsViewTests(TestCase):
                 season_number=2,
                 episode_number=episode_number,
             )
-            EpisodeWatch.objects.create(
+            Episode.objects.create(
                 item=episode_item,
                 related_season=season,
             )
@@ -297,7 +297,7 @@ class MediaDetailsViewTests(TestCase):
                 "air_date": "2026-03-26"
                 if episode_number <= aired_episode_count
                 else None,
-                "history": season.episode_watches.filter(
+                "history": season.episodes.filter(
                     item__episode_number=episode_number,
                 ),
             }

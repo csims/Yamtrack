@@ -8,7 +8,7 @@ from django.urls import reverse
 from app.models import (
     TV,
     Anime,
-    EpisodeWatch,
+    Episode,
     Item,
     MediaTypes,
     Movie,
@@ -111,11 +111,11 @@ class CreateMedia(TestCase):
                 "season_number": 1,
                 "episode_number": 1,
                 "source": Sources.TMDB.value,
-                "watched_at": "2023-06-01T00:00",
+                "end_date": "2023-06-01T00:00",
             },
         )
         self.assertEqual(
-            EpisodeWatch.objects.filter(
+            Episode.objects.filter(
                 item__media_id="1668",
                 related_season__user=self.user,
                 item__episode_number=1,
@@ -201,10 +201,10 @@ class DeleteMedia(TestCase):
             season_number=1,
             episode_number=1,
         )
-        self.episode = EpisodeWatch.objects.create(
+        self.episode = Episode.objects.create(
             item=self.item_ep,
             related_season=self.season,
-            watched_at=datetime.datetime(2023, 6, 1, 0, 0, tzinfo=datetime.UTC),
+            end_date=datetime.datetime(2023, 6, 1, 0, 0, tzinfo=datetime.UTC),
         )
 
     def test_delete_tv(self):
@@ -233,7 +233,7 @@ class DeleteMedia(TestCase):
 
         self.assertEqual(Season.objects.filter(user=self.user).count(), 0)
         self.assertEqual(
-            EpisodeWatch.objects.filter(related_season__user=self.user).count(),
+            Episode.objects.filter(related_season__user=self.user).count(),
             0,
         )
 
@@ -270,10 +270,10 @@ class EpisodeHtmxCrudTests(TestCase):
             season_number=1,
             episode_number=1,
         )
-        self.episode = EpisodeWatch.objects.create(
+        self.episode = Episode.objects.create(
             item=self.episode_item,
             related_season=self.season,
-            watched_at=datetime.datetime(2023, 5, 1, 0, 0, tzinfo=datetime.UTC),
+            end_date=datetime.datetime(2023, 5, 1, 0, 0, tzinfo=datetime.UTC),
         )
 
     @staticmethod
@@ -297,7 +297,7 @@ class EpisodeHtmxCrudTests(TestCase):
 
     @staticmethod
     def _mock_processed_episodes():
-        watched_at = datetime.datetime(2023, 6, 1, 0, 0, tzinfo=datetime.UTC)
+        end_date = datetime.datetime(2023, 6, 1, 0, 0, tzinfo=datetime.UTC)
         return [
             {
                 "media_id": "1668",
@@ -313,7 +313,7 @@ class EpisodeHtmxCrudTests(TestCase):
                 "history": [
                     {
                         "id": 1,
-                        "watched_at": watched_at,
+                        "end_date": end_date,
                     },
                 ],
             },
@@ -340,7 +340,7 @@ class EpisodeHtmxCrudTests(TestCase):
                 "season_number": 1,
                 "episode_number": 1,
                 "source": Sources.TMDB.value,
-                "watched_at": "2023-06-01T00:00",
+                "end_date": "2023-06-01T00:00",
             },
             HTTP_HX_REQUEST="true",
         )
@@ -351,7 +351,7 @@ class EpisodeHtmxCrudTests(TestCase):
         self.assertContains(response, 'hx-swap-oob="outerHTML"', count=2)
         self.assertContains(response, 'hx-post="/episode_save?next=/season"')
         self.assertTrue(
-            EpisodeWatch.objects.filter(
+            Episode.objects.filter(
                 related_season__user=self.user,
                 item__episode_number=1,
             ).exists(),
@@ -368,17 +368,17 @@ class EpisodeHtmxCrudTests(TestCase):
         mock_get_metadata.return_value = self._mock_season_metadata()
         mock_process_episodes.return_value = self._mock_processed_episodes()
 
-        watch = EpisodeWatch.objects.create(
+        watch = Episode.objects.create(
             item=self.episode_item,
             related_season=self.season,
-            watched_at=datetime.datetime(2023, 6, 1, 0, 0, tzinfo=datetime.UTC),
+            end_date=datetime.datetime(2023, 6, 1, 0, 0, tzinfo=datetime.UTC),
         )
 
         response = self.client.post(
             reverse("media_delete") + "?next=/season",
             data={
                 "instance_id": watch.id,
-                "media_type": "episodewatch",
+                "media_type": "episode",
                 "media_id": "1668",
                 "season_number": 1,
                 "source": Sources.TMDB.value,
@@ -391,7 +391,7 @@ class EpisodeHtmxCrudTests(TestCase):
         self.assertContains(response, 'id="episode-row-episode-1668-1-1"')
         self.assertContains(response, 'id="season-tracking-sidebar-season-1668-1"')
         self.assertContains(response, 'hx-swap-oob="outerHTML"', count=2)
-        self.assertFalse(EpisodeWatch.objects.filter(pk=watch.pk).exists())
+        self.assertFalse(Episode.objects.filter(pk=watch.pk).exists())
 
     def test_unwatch_episode(self):
         """Test unwatching of an episode through views."""
@@ -399,11 +399,11 @@ class EpisodeHtmxCrudTests(TestCase):
             reverse("media_delete"),
             data={
                 "instance_id": self.episode.id,
-                "media_type": "episodewatch",
+                "media_type": "episode",
             },
         )
 
         self.assertEqual(
-            EpisodeWatch.objects.filter(related_season__user=self.user).count(),
+            Episode.objects.filter(related_season__user=self.user).count(),
             0,
         )

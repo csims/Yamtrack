@@ -64,7 +64,7 @@
           }">
             <input class="w-full p-3 bg-base-muted-200 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-400 appearance-none"
                    x-bind:type="inputType"
-                   name="watched_at"
+                   name="end_date"
                    onfocus="this.showPicker?.()"
                    x-model="inputDateTime">
             {% if episode.air_date %}
@@ -94,7 +94,7 @@
 
               {% for entry in episode.history %}
                 <div class="flex items-center justify-between bg-base-muted-200 rounded-md p-3">
-                  <div class="text-sm text-white">{{ entry.watched_at|date_tracker_format|default_if_none:"No date provided" }}</div>
+                  <div class="text-sm text-white">{{ entry.end_date|date_tracker_format|default_if_none:"No date provided" }}</div>
                   <form method="post"
                         action="{% url 'media_delete' %}?next={{ return_url|default:request.path }}"
                         {% if use_htmx %}
@@ -104,7 +104,7 @@
                         {% endif %}>
                     {% csrf_token %}
                     <input type="hidden" name="instance_id" value="{{ entry.id }}">
-                    <input type="hidden" name="media_type" value="episodewatch">
+                    <input type="hidden" name="media_type" value="episode">
                     {% if use_htmx %}
                       <input type="hidden" name="media_id" value="{{ media.media_id }}">
                       <input type="hidden" name="season_number" value="{{ media.season_number }}">

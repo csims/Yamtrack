@@ -7,7 +7,7 @@ from app.models import (
     Anime,
     Book,
     Comic,
-    EpisodeWatch,
+    Episode,
     Game,
     Item,
     Manga,
@@ -343,10 +343,10 @@ class EpisodeForm(forms.ModelForm):
     class Meta:
         """Bind form to model."""
 
-        model = EpisodeWatch
-        fields = ("watched_at",)
+        model = Episode
+        fields = ("end_date",)
         widgets = {
-            "watched_at": forms.DateInput(attrs={"type": "date"}),
+            "end_date": forms.DateInput(attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -354,10 +354,10 @@ class EpisodeForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         if settings.TRACK_TIME:
-            self.fields["watched_at"].widget = forms.DateTimeInput(
+            self.fields["end_date"].widget = forms.DateTimeInput(
                 attrs={"type": "datetime-local"},
             )
         else:
-            self.fields["watched_at"].widget = forms.DateInput(
+            self.fields["end_date"].widget = forms.DateInput(
                 attrs={"type": "date"},
             )

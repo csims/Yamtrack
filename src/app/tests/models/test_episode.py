@@ -3,11 +3,11 @@ from datetime import UTC, datetime
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from app.models import EpisodeWatch, Item, MediaTypes, Season, Sources, Status
+from app.models import Episode, Item, MediaTypes, Season, Sources, Status
 
 
-class EpisodeWatchTests(TestCase):
-    """Test EpisodeWatch-based season behavior."""
+class EpisodeTests(TestCase):
+    """Test Episode-based season behavior."""
 
     def setUp(self):
         """Create a user, season, and episode items."""
@@ -48,28 +48,27 @@ class EpisodeWatchTests(TestCase):
         )
 
     def test_watch_creates_episode_watch(self):
-        """Season.watch creates an EpisodeWatch record."""
+        """Season.watch creates an Episode record."""
         watch_date = datetime(2023, 6, 1, 0, 0, tzinfo=UTC)
         self.season.watch(1, watch_date)
 
-        watch = EpisodeWatch.objects.get(
+        watch = Episode.objects.get(
             related_season=self.season,
             item=self.item_ep1,
         )
-        self.assertEqual(watch.watched_at, watch_date)
-        self.assertEqual(watch.source, "manual")
+        self.assertEqual(watch.end_date, watch_date)
 
-    def test_progress_and_dates_from_episode_watches(self):
-        """Season progress and dates use EpisodeWatch timestamps."""
-        EpisodeWatch.objects.create(
+    def test_progress_and_dates_from_episodes(self):
+        """Season progress and dates use Episode timestamps."""
+        Episode.objects.create(
             item=self.item_ep1,
             related_season=self.season,
-            watched_at=datetime(2023, 6, 1, 0, 0, tzinfo=UTC),
+            end_date=datetime(2023, 6, 1, 0, 0, tzinfo=UTC),
         )
-        EpisodeWatch.objects.create(
+        Episode.objects.create(
             item=self.item_ep2,
             related_season=self.season,
-            watched_at=datetime(2023, 6, 2, 0, 0, tzinfo=UTC),
+            end_date=datetime(2023, 6, 2, 0, 0, tzinfo=UTC),
         )
 
         self.assertEqual(self.season.progress, 2)
@@ -84,25 +83,25 @@ class EpisodeWatchTests(TestCase):
 
     def test_unwatch_removes_latest_watch(self):
         """Season.unwatch removes the most recent watch."""
-        EpisodeWatch.objects.create(
+        Episode.objects.create(
             item=self.item_ep1,
             related_season=self.season,
-            watched_at=datetime(2023, 6, 1, 0, 0, tzinfo=UTC),
+            end_date=datetime(2023, 6, 1, 0, 0, tzinfo=UTC),
         )
-        EpisodeWatch.objects.create(
+        Episode.objects.create(
             item=self.item_ep1,
             related_season=self.season,
-            watched_at=datetime(2023, 6, 2, 0, 0, tzinfo=UTC),
+            end_date=datetime(2023, 6, 2, 0, 0, tzinfo=UTC),
         )
 
         self.season.unwatch(1)
 
-        remaining = EpisodeWatch.objects.filter(
+        remaining = Episode.objects.filter(
             related_season=self.season,
             item=self.item_ep1,
         )
         self.assertEqual(remaining.count(), 1)
         self.assertEqual(
-            remaining.first().watched_at,
+            remaining.first().end_date,
             datetime(2023, 6, 1, 0, 0, tzinfo=UTC),
         )

@@ -4,7 +4,7 @@ from django.apps import apps
 from django.contrib import admin
 from django.contrib.admin.sites import AlreadyRegistered
 
-from app.models import EpisodeWatch, Item
+from app.models import Episode, Item
 
 
 # Custom ModelAdmin classes with search functionality
@@ -24,26 +24,11 @@ class ItemAdmin(admin.ModelAdmin):
     list_filter = ["media_type", "source", "is_specials_override"]
 
 
-class EpisodeWatchAdmin(admin.ModelAdmin):
-    """Custom admin for EpisodeWatch model with search and filter options."""
+class EpisodeAdmin(admin.ModelAdmin):
+    """Custom admin for Episode model with search and filter options."""
 
     search_fields = ["item__title", "related_season__item__title"]
-    list_display = ["__str__", "watched_at", "source", "episode_user"]
-    list_filter = ["source"]
-    fields = [
-        "item",
-        "related_season",
-        "watched_at",
-        "source",
-        "episode_user",
-        "created_at",
-    ]
-    readonly_fields = ["episode_user", "created_at"]
-
-    @admin.display(description="User")
-    def episode_user(self, obj):
-        """To display the user for the related season."""
-        return obj.related_season.user
+    list_display = ["__str__", "end_date"]
 
 
 class MediaAdmin(admin.ModelAdmin):
@@ -56,12 +41,12 @@ class MediaAdmin(admin.ModelAdmin):
 
 # Register models with custom admin classes
 admin.site.register(Item, ItemAdmin)
-admin.site.register(EpisodeWatch, EpisodeWatchAdmin)
+admin.site.register(Episode, EpisodeAdmin)
 
 
 # Auto-register remaining models
 app_models = apps.get_app_config("app").get_models()
-SpecialModels = ["Item", "EpisodeWatch", "BasicMedia"]
+SpecialModels = ["Item", "Episode", "BasicMedia"]
 for model in app_models:
     if (
         not model.__name__.startswith("Historical")

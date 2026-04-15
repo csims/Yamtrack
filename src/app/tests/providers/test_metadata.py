@@ -6,7 +6,7 @@ import requests
 from django.conf import settings
 from django.test import TestCase
 
-from app.models import EpisodeWatch, Item, MediaTypes, Sources
+from app.models import Episode, Item, MediaTypes, Sources
 from app.providers import (
     comicvine,
     hardcover,
@@ -139,7 +139,7 @@ class Metadata(TestCase):
             season_number=1,
             episode_number=1,
         )
-        episode_1 = EpisodeWatch(item=episode_item_1)
+        episode_1 = Episode(item=episode_item_1)
 
         episode_item_2 = Item.objects.get(
             media_id="5",
@@ -148,7 +148,7 @@ class Metadata(TestCase):
             season_number=1,
             episode_number=2,
         )
-        episode_2 = EpisodeWatch(item=episode_item_2)
+        episode_2 = Episode(item=episode_item_2)
 
         episodes_in_db = [episode_1, episode_2]
 
@@ -546,8 +546,8 @@ class Metadata(TestCase):
             episode_number=2,
         )
 
-        episode_1 = EpisodeWatch(item=ep_item1)
-        episode_2 = EpisodeWatch(item=ep_item2)
+        episode_1 = Episode(item=ep_item1)
+        episode_2 = Episode(item=ep_item2)
 
         episodes_in_db = [episode_1, episode_2]
 

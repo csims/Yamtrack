@@ -7,7 +7,7 @@ from django.test import TestCase
 
 from app.models import (
     TV,
-    EpisodeWatch,
+    Episode,
     Item,
     MediaTypes,
     Season,
@@ -52,10 +52,10 @@ class TVModel(TestCase):
             season_number=1,
             episode_number=1,
         )
-        EpisodeWatch.objects.create(
+        Episode.objects.create(
             item=item_ep1,
             related_season=season1,
-            watched_at=datetime(2023, 6, 1, 0, 0, tzinfo=UTC),
+            end_date=datetime(2023, 6, 1, 0, 0, tzinfo=UTC),
         )
 
         item_ep2 = Item.objects.create(
@@ -67,10 +67,10 @@ class TVModel(TestCase):
             season_number=1,
             episode_number=2,
         )
-        EpisodeWatch.objects.create(
+        Episode.objects.create(
             item=item_ep2,
             related_season=season1,
-            watched_at=datetime(2023, 6, 2, 0, 0, tzinfo=UTC),
+            end_date=datetime(2023, 6, 2, 0, 0, tzinfo=UTC),
         )
 
         item_season2 = Item.objects.create(
@@ -98,10 +98,10 @@ class TVModel(TestCase):
             season_number=2,
             episode_number=1,
         )
-        EpisodeWatch.objects.create(
+        Episode.objects.create(
             item=item_ep3,
             related_season=season2,
-            watched_at=datetime(2023, 6, 4, 0, 0, tzinfo=UTC),
+            end_date=datetime(2023, 6, 4, 0, 0, tzinfo=UTC),
         )
 
         item_ep4 = Item.objects.create(
@@ -113,10 +113,10 @@ class TVModel(TestCase):
             season_number=2,
             episode_number=2,
         )
-        EpisodeWatch.objects.create(
+        Episode.objects.create(
             item=item_ep4,
             related_season=season2,
-            watched_at=datetime(2023, 6, 5, 0, 0, tzinfo=UTC),
+            end_date=datetime(2023, 6, 5, 0, 0, tzinfo=UTC),
         )
 
     def test_tv_progress(self):
@@ -149,10 +149,10 @@ class TVModel(TestCase):
             season_number=3,
             episode_number=1,
         )
-        EpisodeWatch.objects.create(
+        Episode.objects.create(
             item=item_ep_special,
             related_season=season_special,
-            watched_at=datetime(2023, 6, 10, 0, 0, tzinfo=UTC),
+            end_date=datetime(2023, 6, 10, 0, 0, tzinfo=UTC),
         )
 
         self.assertEqual(self.tv.progress, 4)
@@ -187,10 +187,10 @@ class TVModel(TestCase):
             season_number=4,
             episode_number=1,
         )
-        EpisodeWatch.objects.create(
+        Episode.objects.create(
             item=item_ep_ignored,
             related_season=season_ignored,
-            watched_at=datetime(2023, 6, 12, 0, 0, tzinfo=UTC),
+            end_date=datetime(2023, 6, 12, 0, 0, tzinfo=UTC),
         )
 
         self.assertEqual(self.tv.progress, 4)
@@ -318,7 +318,7 @@ class TVStatusTests(TestCase):
         )
 
         for season in self.tv.seasons.all():
-            self.assertTrue(season.episode_watches.exists())
+            self.assertTrue(season.episodes.exists())
 
     def test_dropped_status_marks_in_progress_seasons_dropped(self):
         """Test setting status to DROPPED marks in-progress seasons as dropped."""

@@ -5,9 +5,7 @@ __pycache__
 venv
 src/staticfiles
 db.sqlite3
-db.sqlite3-shm
-db.sqlite3-wal
-db.sqlite3-bak*
+db.sqlite3-*
 .vscode/launch.json
 CLAUDE.md
 requests.http

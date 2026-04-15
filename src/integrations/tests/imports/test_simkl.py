@@ -8,7 +8,7 @@ from django.test import TestCase
 from app.models import (
     TV,
     Anime,
-    EpisodeWatch,
+    Episode,
     Item,
     MediaTypes,
     Movie,
@@ -221,12 +221,11 @@ class ImportSimkl(TestCase):
             "Season 1 should be completed when all episodes are watched",
         )
 
-        season1_episodes = EpisodeWatch.objects.filter(
+        season1_episodes = Episode.objects.filter(
             item__season_number=1,
             item__media_type=MediaTypes.EPISODE.value,
         )
         self.assertEqual(season1_episodes.count(), 7)
 
         for episode in season1_episodes:
-            self.assertIsNotNone(episode.watched_at)
-
+            self.assertIsNotNone(episode.end_date)

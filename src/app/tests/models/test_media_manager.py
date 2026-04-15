@@ -10,7 +10,7 @@ from app.models import (
     TV,
     Anime,
     Book,
-    EpisodeWatch,
+    Episode,
     Game,
     Item,
     Manga,
@@ -149,10 +149,10 @@ class MediaManagerTests(TestCase):
 
             watched_episodes = 3
             if i <= watched_episodes:
-                EpisodeWatch.objects.create(
+                Episode.objects.create(
                     item=episode_item,
                     related_season=self.season1,
-                    watched_at=datetime(2023, 6, i, 0, 0, tzinfo=UTC),
+                    end_date=datetime(2023, 6, i, 0, 0, tzinfo=UTC),
                 )
             Event.objects.create(
                 item=self.season1_item,
@@ -177,7 +177,6 @@ class MediaManagerTests(TestCase):
         expected_models = [
             f"historical{media_type}"
             for media_type in MediaTypes.values
-            if media_type != MediaTypes.EPISODE.value
         ]
         self.assertEqual(historical_models, expected_models)
 
@@ -278,13 +277,13 @@ class MediaManagerTests(TestCase):
         for tv in tv_list:
             seasons = list(tv.seasons.all())
             for season in seasons:
-                list(season.episode_watches.all())
+                list(season.episodes.all())
 
         with self.assertNumQueries(0):  # No additional queries should be made
             for tv in tv_list:
                 seasons = list(tv.seasons.all())
                 for season in seasons:
-                    list(season.episode_watches.all())
+                    list(season.episodes.all())
 
         season_list = manager.get_media_list(
             user=self.user,
@@ -296,11 +295,11 @@ class MediaManagerTests(TestCase):
         season_list = list(season_list)
 
         for season in season_list:
-            list(season.episode_watches.all())
+            list(season.episodes.all())
 
         with self.assertNumQueries(0):  # No additional queries should be made
             for season in season_list:
-                list(season.episode_watches.all())
+                list(season.episodes.all())
 
     def test_sort_media_list(self):
         """Test the _sort_media_list method."""
@@ -334,10 +333,10 @@ class MediaManagerTests(TestCase):
                 episode_number=i,
             )
 
-            EpisodeWatch.objects.create(
+            Episode.objects.create(
                 item=episode_item,
                 related_season=season2,
-                watched_at=datetime(2023, 7, i, 0, 0, tzinfo=UTC),
+                end_date=datetime(2023, 7, i, 0, 0, tzinfo=UTC),
             )
 
         season3_item = Item.objects.create(
@@ -897,7 +896,7 @@ class MediaManagerTests(TestCase):
         episode = manager.get_media(
             user=self.user,
             media_type=MediaTypes.EPISODE.value,
-            instance_id=self.season1.episode_watches.first().id,
+            instance_id=self.season1.episodes.first().id,
         )
 
         self.assertIsNotNone(episode)

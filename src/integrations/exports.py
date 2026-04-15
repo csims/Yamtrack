@@ -5,7 +5,7 @@ from django.apps import apps
 from django.db.models import Field, Prefetch
 
 from app import helpers
-from app.models import EpisodeWatch, Item, MediaTypes, Season
+from app.models import Episode, Item, MediaTypes, Season
 
 logger = logging.getLogger(__name__)
 
@@ -37,23 +37,20 @@ def generate_rows(user):
             "seasons",
             queryset=Season.objects.select_related("item").prefetch_related(
                 Prefetch(
-                    "episode_watches",
-                    queryset=EpisodeWatch.objects.select_related("item"),
+                    "episodes",
+                    queryset=Episode.objects.select_related("item"),
                 ),
             ),
         ),
         MediaTypes.SEASON.value: Prefetch(
-            "episode_watches",
-            queryset=EpisodeWatch.objects.select_related("item"),
+            "episodes",
+            queryset=Episode.objects.select_related("item"),
         ),
     }
 
     # Yield data rows
     for media_type in MediaTypes.values:
-        if media_type == MediaTypes.EPISODE.value:
-            model = EpisodeWatch
-        else:
-            model = apps.get_model("app", media_type)
+        model = apps.get_model("app", media_type)
 
         filter_kwargs = (
             {"related_season__user": user}
@@ -69,16 +66,9 @@ def generate_rows(user):
         logger.debug("Streaming %ss to CSV", media_type)
 
         for media in queryset.iterator(chunk_size=500):
-            track_values = []
-            for field in fields["track"]:
-                if media_type == MediaTypes.EPISODE.value and field == "watch_source":
-                    track_values.append(getattr(media, "source", ""))
-                else:
-                    track_values.append(getattr(media, field, ""))
-
-            row = [getattr(media.item, field, "") for field in fields["item"]] + (
-                track_values
-            )
+            row = [getattr(media.item, field, "") for field in fields["item"]] + [
+                getattr(media, field, "") for field in fields["track"]
+            ]
 
             if media_type == MediaTypes.GAME.value:
                 # calculate index of progress field
@@ -106,18 +96,13 @@ def get_track_fields():
     all_fields = []
 
     for media_type in MediaTypes.values:
-        if media_type == MediaTypes.EPISODE.value:
-            model = EpisodeWatch
-        else:
-            model = apps.get_model("app", media_type)
+        model = apps.get_model("app", media_type)
         for field in get_model_fields(model):
-            if media_type == MediaTypes.EPISODE.value and field == "source":
-                field = "watch_source"
             if field not in all_fields:
                 all_fields.append(field)
 
     # Put start_date and end_date next to each other
-    # happens because EpisodeWatch exposes end_date via watched_at
+    # happens because Episode has end_date but not start_date
     if "start_date" in all_fields and "end_date" in all_fields:
         end_idx = all_fields.index("end_date")
 

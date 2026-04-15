@@ -301,11 +301,16 @@ class SimklImporter:
                     },
                 )
 
-                episode_instance = app.models.EpisodeWatch(
+                episode_instance = app.models.Episode(
                     item=episode_item,
                     related_season=season_instance,
-                    watched_at=self._get_date(episode.get("watched_at")),
-                    source="import",
+                    end_date=self._get_date(episode.get("watched_at")),
+                )
+                episode_instance._history_date = (
+                    self._get_date(
+                        episode.get("watched_at"),
+                    )
+                    or timezone.now()
                 )
                 self.bulk_media[MediaTypes.EPISODE.value].append(episode_instance)
 

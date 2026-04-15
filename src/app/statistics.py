@@ -18,7 +18,7 @@ from app import config
 from app.models import (
     TV,
     BasicMedia,
-    EpisodeWatch,
+    Episode,
     MediaManager,
     MediaTypes,
     Season,
@@ -43,13 +43,13 @@ def get_user_media(user, start_date, end_date):
     if TV in media_models or Season in media_models:
         if start_date is None and end_date is None:
             # No date filtering for "All Time"
-            base_episodes = EpisodeWatch.objects.filter(
+            base_episodes = Episode.objects.filter(
                 related_season__user=user,
             )
         else:
-            base_episodes = EpisodeWatch.objects.filter(
+            base_episodes = Episode.objects.filter(
                 related_season__user=user,
-                watched_at__range=(start_date, end_date),
+                end_date__range=(start_date, end_date),
             )
 
     for model in media_models:
@@ -68,7 +68,7 @@ def get_user_media(user, start_date, end_date):
                         "item",
                     ).prefetch_related(
                         Prefetch(
-                            "episode_watches",
+                            "episodes",
                             queryset=base_episodes.filter(
                                 related_season__related_tv__in=tv_ids,
                             ),
@@ -84,7 +84,7 @@ def get_user_media(user, start_date, end_date):
             queryset = Season.objects.filter(
                 id__in=season_ids,
             ).prefetch_related(
-                Prefetch("episode_watches", queryset=base_episodes),
+                Prefetch("episodes", queryset=base_episodes),
             )
         # For other models, apply date filtering conditionally
         elif start_date is None and end_date is None:

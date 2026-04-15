@@ -8,7 +8,7 @@ from django.utils import timezone
 from app.models import (
     TV,
     Anime,
-    EpisodeWatch,
+    Episode,
     Item,
     MediaTypes,
     Season,
@@ -65,10 +65,10 @@ class HomeViewTests(TestCase):
                 season_number=1,
                 episode_number=i,
             )
-            EpisodeWatch.objects.create(
+            Episode.objects.create(
                 item=episode_item,
                 related_season=season,
-                watched_at=timezone.now() - timezone.timedelta(days=i),
+                end_date=timezone.now() - timezone.timedelta(days=i),
             )
 
         for i in range(1, 9):
@@ -174,10 +174,10 @@ class HomeViewTests(TestCase):
                 season_number=1,
                 episode_number=episode_number,
             )
-            EpisodeWatch.objects.create(
+            Episode.objects.create(
                 item=episode_item,
                 related_season=season1,
-                watched_at=timezone.now() - timezone.timedelta(days=episode_number),
+                end_date=timezone.now() - timezone.timedelta(days=episode_number),
             )
             Event.objects.create(
                 item=season1_item,
@@ -244,10 +244,10 @@ class HomeViewTests(TestCase):
                 episode_number=episode_number,
             )
             if episode_number <= watched_episode_count:
-                EpisodeWatch.objects.create(
+                Episode.objects.create(
                     item=episode_item,
                     related_season=season,
-                    watched_at=timezone.now() - timezone.timedelta(days=episode_number),
+                    end_date=timezone.now() - timezone.timedelta(days=episode_number),
                 )
 
             Event.objects.create(
@@ -323,10 +323,10 @@ class HomeViewTests(TestCase):
                 season_number=1,
                 episode_number=episode_number,
             )
-            EpisodeWatch.objects.create(
+            Episode.objects.create(
                 item=episode_item,
                 related_season=season1,
-                watched_at=timezone.now() - timezone.timedelta(days=episode_number),
+                end_date=timezone.now() - timezone.timedelta(days=episode_number),
             )
             Event.objects.create(
                 item=season1_item,
@@ -345,10 +345,10 @@ class HomeViewTests(TestCase):
                 episode_number=episode_number,
             )
             if episode_number <= watched_episode_count - 12:
-                EpisodeWatch.objects.create(
+                Episode.objects.create(
                     item=episode_item,
                     related_season=season2,
-                    watched_at=timezone.now() - timezone.timedelta(days=episode_number),
+                    end_date=timezone.now() - timezone.timedelta(days=episode_number),
                 )
 
             Event.objects.create(
@@ -397,7 +397,7 @@ class HomeViewTests(TestCase):
         self.assertTemplateUsed(response, "app/components/home_card.html")
         self.assertContains(response, "Test TV Show S1 E7")
         self.assertTrue(
-            EpisodeWatch.objects.filter(
+            Episode.objects.filter(
                 related_season__related_tv=tv,
                 item__episode_number=6,
             ).exists(),
@@ -443,10 +443,10 @@ class HomeViewTests(TestCase):
             season_number=1,
             episode_number=7,
         )
-        EpisodeWatch.objects.create(
+        Episode.objects.create(
             item=episode_item,
             related_season=season,
-            watched_at=timezone.now(),
+            end_date=timezone.now(),
         )
         for i in range(1, 8):
             Event.objects.create(
@@ -501,10 +501,10 @@ class HomeViewTests(TestCase):
                 season_number=1,
                 episode_number=1,
             )
-            EpisodeWatch.objects.create(
+            Episode.objects.create(
                 item=episode_item,
                 related_season=season,
-                watched_at=timezone.now(),
+                end_date=timezone.now(),
             )
             Event.objects.create(
                 item=season_item,
@@ -552,10 +552,10 @@ class HomeViewTests(TestCase):
                 season_number=1,
                 episode_number=episode_number,
             )
-            EpisodeWatch.objects.create(
+            Episode.objects.create(
                 item=episode_item,
                 related_season=season1,
-                watched_at=timezone.now(),
+                end_date=timezone.now(),
             )
 
         season2_item = Item.objects.create(
@@ -596,7 +596,7 @@ class HomeViewTests(TestCase):
             ).exists(),
         )
         self.assertTrue(
-            EpisodeWatch.objects.filter(
+            Episode.objects.filter(
                 related_season__item=season2_item,
                 item__episode_number=1,
             ).exists(),
@@ -619,10 +619,10 @@ class HomeViewTests(TestCase):
                 season_number=1,
                 episode_number=episode_number,
             )
-            EpisodeWatch.objects.create(
+            Episode.objects.create(
                 item=episode_item,
                 related_season=season1,
-                watched_at=timezone.now(),
+                end_date=timezone.now(),
             )
 
         response = self.client.get(reverse("home"))
@@ -673,10 +673,10 @@ class HomeViewTests(TestCase):
             season_number=1,
             episode_number=1,
         )
-        EpisodeWatch.objects.create(
+        Episode.objects.create(
             item=first_episode_item,
             related_season=season,
-            watched_at=timezone.now(),
+            end_date=timezone.now(),
         )
         Item.objects.create(
             media_id="9500",
@@ -751,7 +751,7 @@ class HomeViewTests(TestCase):
             season_number=1,
             episode_number=2,
         )
-        EpisodeWatch.objects.create(
+        Episode.objects.create(
             item=Item.objects.get(
                 media_id="9600",
                 source=Sources.TMDB.value,
@@ -760,7 +760,7 @@ class HomeViewTests(TestCase):
                 episode_number=1,
             ),
             related_season=season,
-            watched_at=timezone.now(),
+            end_date=timezone.now(),
         )
         Event.objects.create(
             item=season_item,
@@ -789,7 +789,7 @@ class HomeViewTests(TestCase):
         season.refresh_from_db()
         self.assertEqual(season.status, Status.IN_PROGRESS.value)
         self.assertTrue(
-            EpisodeWatch.objects.filter(
+            Episode.objects.filter(
                 related_season=season,
                 item=second_episode,
             ).exists(),
@@ -867,10 +867,10 @@ class HomeViewTests(TestCase):
                 content_number=episode_number,
                 datetime=timezone.now() - timezone.timedelta(days=1),
             )
-        EpisodeWatch.objects.create(
+        Episode.objects.create(
             item=visible_episode_4,
             related_season=season,
-            watched_at=timezone.now(),
+            end_date=timezone.now(),
         )
 
         response = self.client.get(reverse("home"))
@@ -889,7 +889,7 @@ class HomeViewTests(TestCase):
         season.refresh_from_db()
         self.assertEqual(season.status, Status.COMPLETED.value)
         self.assertTrue(
-            EpisodeWatch.objects.filter(
+            Episode.objects.filter(
                 related_season=season,
                 item=visible_episode_2,
             ).exists(),
@@ -951,10 +951,10 @@ class HomeViewTests(TestCase):
             season_number=1,
             episode_number=3,
         )
-        EpisodeWatch.objects.create(
+        Episode.objects.create(
             item=first_episode_item,
             related_season=season,
-            watched_at=timezone.now(),
+            end_date=timezone.now(),
         )
         Event.objects.create(
             item=season_item,
@@ -983,7 +983,7 @@ class HomeViewTests(TestCase):
         season.refresh_from_db()
         self.assertEqual(season.status, Status.COMPLETED.value)
         self.assertTrue(
-            EpisodeWatch.objects.filter(
+            Episode.objects.filter(
                 related_season=season,
                 item=third_episode_item,
             ).exists(),

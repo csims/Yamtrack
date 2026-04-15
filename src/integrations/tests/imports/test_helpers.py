@@ -7,7 +7,7 @@ from django_celery_beat.models import CrontabSchedule, PeriodicTask
 
 from app.models import (
     TV,
-    EpisodeWatch,
+    Episode,
     Item,
     MediaTypes,
     Season,
@@ -93,7 +93,7 @@ class HelpersTest(TestCase):
             episode_number=1,
         )
 
-        new_episode = EpisodeWatch(
+        new_episode = Episode(
             item=episode_item,
             related_season=Season(item=season_item, related_tv=tv, user=self.user),
         )
