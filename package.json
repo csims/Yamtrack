@@ -11,7 +11,7 @@
     "node": ">=24"
   },
   "devDependencies": {
-    "@lavamoat/allow-scripts": "^4.0.0",
+    "@lavamoat/allow-scripts": "^5.0.0",
     "@lavamoat/preinstall-always-fail": "^3.0.0",
     "daisyui": "^5.5.19"
   }
