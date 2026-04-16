@@ -20,6 +20,57 @@ from events.models import Event
 from users.models import HomeSortChoices
 
 
+def mock_tv_with_seasons(*episode_counts, title="Test TV Show", image=None):
+    """Return minimal tv_with_seasons metadata for Episode.save tests."""
+    if image is None:
+        image = "http://example.com/image.jpg"
+
+    data = {
+        "title": title,
+        "image": image,
+        "related": {
+            "seasons": [
+                {"season_number": index, "image": image}
+                for index in range(1, len(episode_counts) + 1)
+            ],
+        },
+    }
+    for index, episode_count in enumerate(episode_counts, start=1):
+        data[f"season/{index}"] = {
+            "episodes": [
+                {"episode_number": episode_number}
+                for episode_number in range(1, episode_count + 1)
+            ],
+        }
+    return data
+
+
+def mock_metadata_side_effect(*episode_counts, title="Test TV Show", image=None):
+    """Return a minimal get_media_metadata side effect for TV/season lookups."""
+    tv_with_seasons = mock_tv_with_seasons(
+        *episode_counts,
+        title=title,
+        image=image,
+    )
+
+    def side_effect(
+        media_type,
+        media_id,  # noqa: ARG001
+        source,  # noqa: ARG001
+        season_numbers=None,
+        episode_number=None,  # noqa: ARG001
+    ):
+        if media_type == "tv_with_seasons":
+            return tv_with_seasons
+        if media_type == MediaTypes.SEASON.value:
+            season_number = (season_numbers or [None])[0]
+            return tv_with_seasons[f"season/{season_number}"]
+        msg = f"Unexpected get_media_metadata call in HomeViewTests: {media_type}"
+        raise AssertionError(msg)
+
+    return side_effect
+
+
 class HomeViewTests(TestCase):
     """Test the home view."""
 
@@ -56,21 +107,25 @@ class HomeViewTests(TestCase):
             status=Status.IN_PROGRESS.value,
         )
 
-        for i in range(1, 6):  # Create 5 episodes
-            episode_item = Item.objects.create(
-                media_id="1668",
-                source=Sources.TMDB.value,
-                media_type=MediaTypes.EPISODE.value,
-                title="Test TV Show",
-                image="http://example.com/image.jpg",
-                season_number=1,
-                episode_number=i,
-            )
-            Episode.objects.create(
-                item=episode_item,
-                related_season=season,
-                end_date=timezone.now() - timezone.timedelta(days=i),
-            )
+        with patch(
+            "app.providers.services.get_media_metadata",
+            return_value=mock_tv_with_seasons(8),
+        ):
+            for i in range(1, 6):  # Create 5 episodes
+                episode_item = Item.objects.create(
+                    media_id="1668",
+                    source=Sources.TMDB.value,
+                    media_type=MediaTypes.EPISODE.value,
+                    title="Test TV Show",
+                    image="http://example.com/image.jpg",
+                    season_number=1,
+                    episode_number=i,
+                )
+                Episode.objects.create(
+                    item=episode_item,
+                    related_season=season,
+                    end_date=timezone.now() - timezone.timedelta(days=i),
+                )
 
         for i in range(1, 9):
             Event.objects.create(
@@ -126,8 +181,14 @@ class HomeViewTests(TestCase):
         )
         self.assertContains(response, season_url)
 
-    def test_home_view_ignores_unknown_air_date_episodes(self):
+    @patch("app.providers.services.get_media_metadata")
+    def test_home_view_ignores_unknown_air_date_episodes(self, mock_get_media_metadata):
         """Unknown-air-date placeholder events don't keep a finished show on home."""
+        mock_get_media_metadata.return_value = mock_tv_with_seasons(
+            13,
+            1,
+            title="Unknown Date Show",
+        )
         season1_item = Item.objects.create(
             media_id="273174",
             source=Sources.TMDB.value,
@@ -201,8 +262,16 @@ class HomeViewTests(TestCase):
         tv_items = response.context["list_by_type"][MediaTypes.TV.value]["items"]
         self.assertFalse(any(item.item.media_id == "273174" for item in tv_items))
 
-    def test_home_view_hides_show_when_remaining_episodes_are_unknown_date(self):
+    @patch("app.providers.services.get_media_metadata")
+    def test_home_view_hides_show_when_remaining_episodes_are_unknown_date(
+        self,
+        mock_get_media_metadata,
+    ):
         """TV home should hide shows when only unknown-date episodes remain."""
+        mock_get_media_metadata.return_value = mock_tv_with_seasons(
+            40,
+            title="Pursuit of Jade",
+        )
         watched_episode_count = 20
         real_dated_episode_count = 20
         season_item = Item.objects.create(
@@ -267,8 +336,17 @@ class HomeViewTests(TestCase):
         tv_items = response.context["list_by_type"][MediaTypes.TV.value]["items"]
         self.assertFalse(any(item.item.media_id == "279388" for item in tv_items))
 
-    def test_home_view_counts_only_past_aired_or_watched_episodes(self):
+    @patch("app.providers.services.get_media_metadata")
+    def test_home_view_counts_only_past_aired_or_watched_episodes(
+        self,
+        mock_get_media_metadata,
+    ):
         """TV home should only count watched or past-aired episodes."""
+        mock_get_media_metadata.return_value = mock_tv_with_seasons(
+            13,
+            13,
+            title="Only Friends",
+        )
         watched_episode_count = 17
         past_aired_episode_count = 19
         season1_item = Item.objects.create(
@@ -384,8 +462,10 @@ class HomeViewTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.home_sort, "completion")
 
-    def test_home_watch_next_episode_htmx(self):
+    @patch("app.providers.services.get_media_metadata")
+    def test_home_watch_next_episode_htmx(self, mock_get_media_metadata):
         """Test watching next episode from TV home card without full reload."""
+        mock_get_media_metadata.side_effect = mock_metadata_side_effect(8)
         headers = {"HTTP_HX_REQUEST": "true"}
         tv = self.user.tv_set.get(item__media_id="1668")
         response = self.client.post(
@@ -404,11 +484,19 @@ class HomeViewTests(TestCase):
             ).exists(),
         )
 
-    def test_home_view_out_of_order_fallback_to_earliest_unwatched(self):
+    @patch("app.providers.services.get_media_metadata")
+    def test_home_view_out_of_order_fallback_to_earliest_unwatched(
+        self,
+        mock_get_media_metadata,
+    ):
         """Test fallback to earliest unwatched aired episode.
 
         Applies when next-after-max is unavailable.
         """
+        mock_get_media_metadata.return_value = mock_tv_with_seasons(
+            8,
+            title="Fallback Show",
+        )
         season_item = Item.objects.create(
             media_id="9000",
             source=Sources.TMDB.value,
@@ -466,18 +554,7 @@ class HomeViewTests(TestCase):
     @patch("app.providers.services.get_media_metadata")
     def test_home_view_htmx_load_more(self, mock_get_media_metadata):
         """Test the HTMX load more functionality."""
-        mock_get_media_metadata.return_value = {
-            "title": "Test TV Show",
-            "image": "http://example.com/image.jpg",
-            "season/1": {
-                "episodes": [{"id": 1}, {"id": 2}, {"id": 3}],  # 3 episodes
-            },
-            "related": {
-                "seasons": [
-                    {"season_number": 1, "image": "http://example.com/image.jpg"},
-                ],  # Only one season
-            },
-        }
+        mock_get_media_metadata.return_value = mock_tv_with_seasons(3)
 
         for i in range(6, 20):  # Create 14 more TV shows (we already have 1)
             season_item = Item.objects.create(
@@ -550,8 +627,13 @@ class HomeViewTests(TestCase):
             15,
         )  # 15 TV shows total
 
-    def test_home_view_moves_to_next_season_when_current_season_completed(self):
+    @patch("app.providers.services.get_media_metadata")
+    def test_home_view_moves_to_next_season_when_current_season_completed(
+        self,
+        mock_get_media_metadata,
+    ):
         """Test home card continues at next aired episode in a later season."""
+        mock_get_media_metadata.side_effect = mock_metadata_side_effect(8, 2)
         season1 = Season.objects.get(
             user=self.user,
             item__media_id="1668",
@@ -617,8 +699,10 @@ class HomeViewTests(TestCase):
             ).exists(),
         )
 
-    def test_home_view_shows_finale_badge(self):
+    @patch("app.providers.services.get_media_metadata")
+    def test_home_view_shows_finale_badge(self, mock_get_media_metadata):
         """Test home card marks the selected last episode as Finale."""
+        mock_get_media_metadata.return_value = mock_tv_with_seasons(8)
         season1 = Season.objects.get(
             user=self.user,
             item__media_id="1668",
@@ -648,11 +732,19 @@ class HomeViewTests(TestCase):
         self.assertEqual(tv.home_display_title, "Test TV Show S1 E8")
         self.assertEqual(tv.home_episode_badge, "Finale")
 
-    def test_home_watch_marks_season_completed_when_all_non_hidden_aired_watched(self):
+    @patch("app.providers.services.get_media_metadata")
+    def test_home_watch_marks_season_completed_when_all_non_hidden_aired_watched(
+        self,
+        mock_get_media_metadata,
+    ):
         """Test home watch auto-completes a season.
 
         Completes when all eligible aired episodes are watched.
         """
+        mock_get_media_metadata.return_value = mock_tv_with_seasons(
+            2,
+            title="Completion Show",
+        )
         season_item = Item.objects.create(
             media_id="9500",
             source=Sources.TMDB.value,
@@ -720,8 +812,16 @@ class HomeViewTests(TestCase):
         season.refresh_from_db()
         self.assertEqual(season.status, Status.COMPLETED.value)
 
-    def test_home_watch_does_not_complete_season_with_unaired_non_hidden_episodes(self):
+    @patch("app.providers.services.get_media_metadata")
+    def test_home_watch_does_not_complete_season_with_unaired_non_hidden_episodes(
+        self,
+        mock_get_media_metadata,
+    ):
         """Season should remain in progress if any non-hidden episode is unaired."""
+        mock_get_media_metadata.return_value = mock_tv_with_seasons(
+            3,
+            title="Unaired Show",
+        )
         season_item = Item.objects.create(
             media_id="9600",
             source=Sources.TMDB.value,
@@ -810,8 +910,16 @@ class HomeViewTests(TestCase):
             ).exists(),
         )
 
-    def test_home_view_premiere_finale_ignore_hidden_episodes(self):
+    @patch("app.providers.services.get_media_metadata")
+    def test_home_view_premiere_finale_ignore_hidden_episodes(
+        self,
+        mock_get_media_metadata,
+    ):
         """Premiere/Finale badges should ignore hidden episodes."""
+        mock_get_media_metadata.return_value = mock_tv_with_seasons(
+            5,
+            title="Hidden Badge Show",
+        )
         season_item = Item.objects.create(
             media_id="9700",
             source=Sources.TMDB.value,
@@ -910,8 +1018,16 @@ class HomeViewTests(TestCase):
             ).exists(),
         )
 
-    def test_home_watch_can_complete_with_unaired_hidden_episode(self):
+    @patch("app.providers.services.get_media_metadata")
+    def test_home_watch_can_complete_with_unaired_hidden_episode(
+        self,
+        mock_get_media_metadata,
+    ):
         """Hidden unaired episodes should not prevent season completion."""
+        mock_get_media_metadata.return_value = mock_tv_with_seasons(
+            3,
+            title="Hidden Unaired Show",
+        )
         season_item = Item.objects.create(
             media_id="9800",
             source=Sources.TMDB.value,
