@@ -111,7 +111,7 @@ class CreateMedia(TestCase):
                 "season_number": 1,
                 "episode_number": 1,
                 "source": Sources.TMDB.value,
-                "end_date": "2023-06-01T00:00",
+                "date": "2023-06-01T00:00",  # TODO: should this be date or end_date?
             },
         )
         self.assertEqual(
@@ -313,7 +313,7 @@ class EpisodeHtmxCrudTests(TestCase):
                 "history": [
                     {
                         "id": 1,
-                        "end_date": end_date,
+                        "date": end_date,  # TODO: should this be date or end_date?
                     },
                 ],
             },
@@ -340,7 +340,7 @@ class EpisodeHtmxCrudTests(TestCase):
                 "season_number": 1,
                 "episode_number": 1,
                 "source": Sources.TMDB.value,
-                "end_date": "2023-06-01T00:00",
+                "date": "2023-06-01T00:00",  # TODO: should this be date or end_date?
             },
             HTTP_HX_REQUEST="true",
         )
@@ -378,7 +378,7 @@ class EpisodeHtmxCrudTests(TestCase):
             reverse("media_delete") + "?next=/season",
             data={
                 "instance_id": watch.id,
-                "media_type": "episode",
+                "media_type": MediaTypes.EPISODE.value,
                 "media_id": "1668",
                 "season_number": 1,
                 "source": Sources.TMDB.value,
@@ -399,7 +399,7 @@ class EpisodeHtmxCrudTests(TestCase):
             reverse("media_delete"),
             data={
                 "instance_id": self.episode.id,
-                "media_type": "episode",
+                "media_type": MediaTypes.EPISODE.value,
             },
         )
 

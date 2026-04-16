@@ -19,20 +19,13 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from app import config, helpers, history_processor
 from app import statistics as stats
 from app.forms import EpisodeForm, ManualItemForm, get_form_class
-from app.models import (
-    TV,
-    BasicMedia,
-    Item,
-    MediaTypes,
-    Season,
-    Sources,
-    Status,
-)
+from app.models import TV, BasicMedia, Item, MediaTypes, Season, Sources, Status
 from app.providers import manual, services, tmdb
 from app.templatetags import app_tags
 from users.models import HomeSortChoices, MediaSortChoices, MediaStatusChoices
 
 logger = logging.getLogger(__name__)
+
 
 @require_GET
 def home(request):
@@ -153,6 +146,7 @@ def progress_edit(request, media_type, instance_id):
 
     if media_type == MediaTypes.SEASON.value:
         # Legacy season +/- path: clear prefetch cache to get updated episodes.
+        # TODO: remove this?
         media.refresh_from_db()
         prefetch_related_objects([media], "episodes")
 
@@ -280,6 +274,7 @@ def media_details(request, source, media_type, media_id, title):  # noqa: ARG001
         source,
     )
     current_instance = user_medias[0] if user_medias else None
+
     # Enrich related items with user tracking data
     if media_metadata.get("related"):
         for section_name, related_items in media_metadata["related"].items():
@@ -348,15 +343,13 @@ def _build_season_details_context(request, source, media_id, season_number):
                 episode
                 for episode in season_metadata["episodes"]
                 if episode["episode_number"] not in hidden_episode_numbers
-                and (
-                    episode["air_date"]
-                    or episode.get("history")
-                )
+                and (episode["air_date"] or episode.get("history"))
             ],
         )
         if visible_episode_total:
             current_instance.max_progress = visible_episode_total
 
+    # Enrich related items with user tracking data
     if season_metadata.get("related"):
         for section_name, related_items in season_metadata["related"].items():
             if related_items:
@@ -407,7 +400,7 @@ def _render_season_episode_update(
 
 
 @require_GET
-def season_details(request, source, media_id, title, season_number):  # noqa: ARG001 For URL
+def season_details(request, source, media_id, title, season_number):  # noqa: ARG001 Title for URL
     """Return the details page for a season."""
     context = _build_season_details_context(
         request,
@@ -852,10 +845,7 @@ def episode_save(request):
 
         logger.info("%s did not exist, it was created successfully.", related_season)
 
-    related_season.watch(
-        episode_number,
-        form.cleaned_data["end_date"],
-    )
+    related_season.watch(episode_number, form.cleaned_data["end_date"])
 
     has_episode_events = related_season.item.event_set.filter(
         content_number__isnull=False,
@@ -926,21 +916,17 @@ def create_entry(request):
         logger.info("%s was deleted due to media form validation failure", item)
         return redirect("create_entry")
 
-    # Update the media instance
-    media = media_form.save(commit=False)
-    if hasattr(media, "user_id"):
-        # Assign FK id directly to avoid lazy user resolution in tests.
-        media.user_id = request.user.pk
-    media.item = item
+    # Save the media instance
+    media_form.instance.user = request.user
+    media_form.instance.item = item
 
     # Handle relationships based on media type
     if item.media_type == MediaTypes.SEASON.value:
-        media.related_tv = form.cleaned_data["parent_tv"]
+        media_form.instance.related_tv = form.cleaned_data["parent_tv"]
     elif item.media_type == MediaTypes.EPISODE.value:
-        media.related_season = form.cleaned_data["parent_season"]
+        media_form.instance.related_season = form.cleaned_data["parent_season"]
 
-    # Save the media instance
-    media.save()
+    media_form.save()
 
     # Success message
     msg = f"{item} added successfully."

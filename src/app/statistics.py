@@ -15,15 +15,7 @@ from django.db.models import (
 from django.utils import timezone
 
 from app import config
-from app.models import (
-    TV,
-    BasicMedia,
-    Episode,
-    MediaManager,
-    MediaTypes,
-    Season,
-    Status,
-)
+from app.models import TV, BasicMedia, Episode, MediaManager, MediaTypes, Season, Status
 from app.templatetags import app_tags
 
 logger = logging.getLogger(__name__)
@@ -513,11 +505,7 @@ def get_filtered_historical_data(start_date, end_date, user):
     day_buckets = defaultdict(int)
 
     for model_name in historical_models:
-        try:
-            model = apps.get_model("app", model_name)
-        except LookupError:
-            logger.warning("Historical model %s not found; skipping.", model_name)
-            continue
+        model = apps.get_model("app", model_name)
 
         qs = model.objects.filter(history_user_id=user)
 

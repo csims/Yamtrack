@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -462,8 +463,22 @@ class HomeViewTests(TestCase):
         fallback_tv = next(tv for tv in tv_items if tv.item.media_id == "9000")
         self.assertEqual(fallback_tv.home_display_title, "Fallback Show S1 E1")
 
-    def test_home_view_htmx_load_more(self):
+    @patch("app.providers.services.get_media_metadata")
+    def test_home_view_htmx_load_more(self, mock_get_media_metadata):
         """Test the HTMX load more functionality."""
+        mock_get_media_metadata.return_value = {
+            "title": "Test TV Show",
+            "image": "http://example.com/image.jpg",
+            "season/1": {
+                "episodes": [{"id": 1}, {"id": 2}, {"id": 3}],  # 3 episodes
+            },
+            "related": {
+                "seasons": [
+                    {"season_number": 1, "image": "http://example.com/image.jpg"},
+                ],  # Only one season
+            },
+        }
+
         for i in range(6, 20):  # Create 14 more TV shows (we already have 1)
             season_item = Item.objects.create(
                 media_id=str(i),

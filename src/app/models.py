@@ -252,10 +252,7 @@ class MediaManager(models.Manager):
     def get_media_list(self, user, media_type, status_filter, sort_filter, search=None):
         """Get media list based on filters, sorting and search."""
         model = apps.get_model(app_label="app", model_name=media_type)
-        if media_type == MediaTypes.EPISODE.value:
-            queryset = model.objects.filter(related_season__user=user)
-        else:
-            queryset = model.objects.filter(user=user.id)
+        queryset = model.objects.filter(user=user.id)
 
         if status_filter != users.models.MediaStatusChoices.ALL:
             queryset = queryset.filter(status=status_filter)
@@ -646,9 +643,7 @@ class MediaManager(models.Manager):
         if not tv_list:
             return {}
 
-        tv_by_media_key = {
-            (tv.item.media_id, tv.item.source): tv for tv in tv_list
-        }
+        tv_by_media_key = {(tv.item.media_id, tv.item.source): tv for tv in tv_list}
         aired_episode_map = {}
         aired_events = events.models.Event.objects.filter(
             item__media_id__in=[tv.item.media_id for tv in tv_list],
@@ -688,9 +683,7 @@ class MediaManager(models.Manager):
         if not tv_list:
             return {}
 
-        tv_by_media_key = {
-            (tv.item.media_id, tv.item.source): tv for tv in tv_list
-        }
+        tv_by_media_key = {(tv.item.media_id, tv.item.source): tv for tv in tv_list}
         dated_episode_map = {}
         dated_events = events.models.Event.objects.filter(
             item__media_id__in=[tv.item.media_id for tv in tv_list],
@@ -729,9 +722,7 @@ class MediaManager(models.Manager):
         if not tv_list:
             return {}
 
-        tv_by_media_key = {
-            (tv.item.media_id, tv.item.source): tv for tv in tv_list
-        }
+        tv_by_media_key = {(tv.item.media_id, tv.item.source): tv for tv in tv_list}
         all_episode_map = {}
         all_events = events.models.Event.objects.filter(
             item__media_id__in=[tv.item.media_id for tv in tv_list],
@@ -769,9 +760,7 @@ class MediaManager(models.Manager):
         if not tv_list:
             return {}
 
-        tv_by_media_key = {
-            (tv.item.media_id, tv.item.source): tv for tv in tv_list
-        }
+        tv_by_media_key = {(tv.item.media_id, tv.item.source): tv for tv in tv_list}
         known_episode_map = {}
         episode_items = Item.objects.filter(
             media_id__in=[tv.item.media_id for tv in tv_list],
@@ -915,8 +904,10 @@ class MediaManager(models.Manager):
                 x.next_event is None,
                 x.next_event.datetime if x.next_event else None,
             ),
-            users.models.HomeSortChoices.RECENT: lambda x: -timezone.datetime.timestamp(
-                x.progressed_at if x.progressed_at is not None else x.created_at,
+            users.models.HomeSortChoices.RECENT: lambda x: (
+                -timezone.datetime.timestamp(
+                    x.progressed_at if x.progressed_at is not None else x.created_at,
+                )
             ),
             users.models.HomeSortChoices.COMPLETION: lambda x: (
                 x.max_progress is None,
@@ -1924,13 +1915,7 @@ class TV(Media):
             episodes_to_create.extend(
                 season_instance.get_remaining_eps(season_metadata),
             )
-        if episodes_to_create:
-            bulk_create_with_history(
-                episodes_to_create,
-                Episode,
-                batch_size=1000,
-                default_user=self.user,
-            )
+        bulk_create_with_history(episodes_to_create, Episode)
 
     def _mark_in_progress_seasons_as_dropped(self):
         """Mark all in-progress seasons as dropped."""
@@ -2074,8 +2059,6 @@ class Season(Media):
                     bulk_create_with_history(
                         episodes_to_create,
                         Episode,
-                        batch_size=1000,
-                        default_user=self.user,
                     )
 
             elif (
@@ -2115,6 +2098,7 @@ class Season(Media):
 
     def _current_episode_number(self):
         """Return watched episode number used for next/unwatch actions."""
+        # TODO: remove this function?
         episodes = self.episodes.all()
         if not episodes:
             return 0
@@ -2173,6 +2157,7 @@ class Season(Media):
 
         Legacy support for progress_edit +/- season controls. Primary season
         tracking is episode-driven (episode_save and home_watch_next_episode).
+        TODO: remove this?
         """
         season_metadata = providers.services.get_media_metadata(
             MediaTypes.SEASON.value,
@@ -2218,6 +2203,7 @@ class Season(Media):
 
         Legacy support for progress_edit +/- season controls. Primary season
         tracking is episode-driven (episode_save and home_watch_next_episode).
+        TODO: remove this?
         """
         current_episode_number = self._current_episode_number()
         if current_episode_number == 0:
@@ -2342,6 +2328,7 @@ class Season(Media):
 
     def get_episode_item(self, episode_number, season_metadata=None):
         """Get the episode item instance, create it if it doesn't exist."""
+        # TODO: why is this existing_item check here?
         existing_item = Item.objects.filter(
             media_id=self.item.media_id,
             source=self.item.source,
@@ -2425,23 +2412,16 @@ class Episode(models.Model):
         super().save(*args, **kwargs)
 
         season_number = self.item.season_number
-        try:
-            tv_with_seasons_metadata = providers.services.get_media_metadata(
-                "tv_with_seasons",
-                self.item.media_id,
-                self.item.source,
-                [season_number],
-            )
-        except providers.services.ProviderAPIError:
-            logger.warning(
-                "Skipping episode status sync for %s because season metadata "
-                "could not be fetched.",
-                self.item,
-            )
-            return
+        tv_with_seasons_metadata = providers.services.get_media_metadata(
+            "tv_with_seasons",
+            self.item.media_id,
+            self.item.source,
+            [season_number],
+        )
         season_metadata = tv_with_seasons_metadata[f"season/{season_number}"]
         max_progress = len(season_metadata["episodes"])
 
+        # clear prefetch cache to get the updated episodes
         self.related_season.refresh_from_db()
 
         season_just_completed = False
@@ -2466,6 +2446,7 @@ class Episode(models.Model):
             last_season = tv_with_seasons_metadata["related"]["seasons"][-1][
                 "season_number"
             ]
+            # mark the TV show as completed if it's the last season
             if season_number == last_season:
                 self.related_season.related_tv.status = Status.COMPLETED.value
                 bulk_update_with_history(

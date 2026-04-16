@@ -1,4 +1,3 @@
-
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.test import TestCase
@@ -184,8 +183,7 @@ class CreateEntryViewTests(TestCase):
         episode = Episode.objects.get(item__title="TV Show")
         self.assertEqual(episode.related_season, parent_season)
         end_date_local = timezone.localtime(episode.end_date)
-        self.assertEqual(end_date_local.strftime("%Y-%m-%d %H:%M"),
-                         "2023-01-02 00:00")
+        self.assertEqual(end_date_local.strftime("%Y-%m-%d %H:%M"), "2023-01-02 00:00")
 
     def test_create_entry_post_duplicate_item(self):
         """Test creating a duplicate item."""

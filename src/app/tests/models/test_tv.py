@@ -200,7 +200,7 @@ class TVModel(TestCase):
         )
 
     def test_tv_start_date(self):
-        """Test the start_date property of the Season model."""
+        """Test the start_date property of the TV model."""
         self.assertEqual(
             self.tv.start_date,
             datetime(2023, 6, 1, 0, 0, tzinfo=UTC),

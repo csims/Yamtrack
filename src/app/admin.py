@@ -4,7 +4,10 @@ from django.apps import apps
 from django.contrib import admin
 from django.contrib.admin.sites import AlreadyRegistered
 
-from app.models import Episode, Item
+from app.models import (
+    Episode,
+    Item,
+)
 
 
 # Custom ModelAdmin classes with search functionality

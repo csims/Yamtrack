@@ -9,6 +9,7 @@ extend-exclude = ["migrations"]
 select = ["ALL"]
 ignore = [
   "ANN", "PT", "PD", "D100", "D104", "RUF012", "PLR0913", "SLF001", "PLW2901",
+  "TD002", # todos are fine
   "TD003", # todos are fine
   "FIX002" # todos are fine
 ]
