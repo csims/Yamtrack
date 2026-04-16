@@ -107,25 +107,21 @@ class HomeViewTests(TestCase):
             status=Status.IN_PROGRESS.value,
         )
 
-        with patch(
-            "app.providers.services.get_media_metadata",
-            return_value=mock_tv_with_seasons(8),
-        ):
-            for i in range(1, 6):  # Create 5 episodes
-                episode_item = Item.objects.create(
-                    media_id="1668",
-                    source=Sources.TMDB.value,
-                    media_type=MediaTypes.EPISODE.value,
-                    title="Test TV Show",
-                    image="http://example.com/image.jpg",
-                    season_number=1,
-                    episode_number=i,
-                )
-                Episode.objects.create(
-                    item=episode_item,
-                    related_season=season,
-                    end_date=timezone.now() - timezone.timedelta(days=i),
-                )
+        for i in range(1, 6):  # Create 5 episodes
+            episode_item = Item.objects.create(
+                media_id="1668",
+                source=Sources.TMDB.value,
+                media_type=MediaTypes.EPISODE.value,
+                title="Test TV Show",
+                image="http://example.com/image.jpg",
+                season_number=1,
+                episode_number=i,
+            )
+            Episode.objects.create(
+                item=episode_item,
+                related_season=season,
+                end_date=timezone.now() - timezone.timedelta(days=i),
+            )
 
         for i in range(1, 9):
             Event.objects.create(
@@ -181,14 +177,8 @@ class HomeViewTests(TestCase):
         )
         self.assertContains(response, season_url)
 
-    @patch("app.providers.services.get_media_metadata")
-    def test_home_view_ignores_unknown_air_date_episodes(self, mock_get_media_metadata):
+    def test_home_view_ignores_unknown_air_date_episodes(self):
         """Unknown-air-date placeholder events don't keep a finished show on home."""
-        mock_get_media_metadata.return_value = mock_tv_with_seasons(
-            13,
-            1,
-            title="Unknown Date Show",
-        )
         season1_item = Item.objects.create(
             media_id="273174",
             source=Sources.TMDB.value,
@@ -262,16 +252,8 @@ class HomeViewTests(TestCase):
         tv_items = response.context["list_by_type"][MediaTypes.TV.value]["items"]
         self.assertFalse(any(item.item.media_id == "273174" for item in tv_items))
 
-    @patch("app.providers.services.get_media_metadata")
-    def test_home_view_hides_show_when_remaining_episodes_are_unknown_date(
-        self,
-        mock_get_media_metadata,
-    ):
+    def test_home_view_hides_show_when_remaining_episodes_are_unknown_date(self):
         """TV home should hide shows when only unknown-date episodes remain."""
-        mock_get_media_metadata.return_value = mock_tv_with_seasons(
-            40,
-            title="Pursuit of Jade",
-        )
         watched_episode_count = 20
         real_dated_episode_count = 20
         season_item = Item.objects.create(
@@ -462,10 +444,8 @@ class HomeViewTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.home_sort, "completion")
 
-    @patch("app.providers.services.get_media_metadata")
-    def test_home_watch_next_episode_htmx(self, mock_get_media_metadata):
+    def test_home_watch_next_episode_htmx(self):
         """Test watching next episode from TV home card without full reload."""
-        mock_get_media_metadata.side_effect = mock_metadata_side_effect(8)
         headers = {"HTTP_HX_REQUEST": "true"}
         tv = self.user.tv_set.get(item__media_id="1668")
         response = self.client.post(
@@ -627,13 +607,8 @@ class HomeViewTests(TestCase):
             15,
         )  # 15 TV shows total
 
-    @patch("app.providers.services.get_media_metadata")
-    def test_home_view_moves_to_next_season_when_current_season_completed(
-        self,
-        mock_get_media_metadata,
-    ):
+    def test_home_view_moves_to_next_season_when_current_season_completed(self):
         """Test home card continues at next aired episode in a later season."""
-        mock_get_media_metadata.side_effect = mock_metadata_side_effect(8, 2)
         season1 = Season.objects.get(
             user=self.user,
             item__media_id="1668",
@@ -699,10 +674,8 @@ class HomeViewTests(TestCase):
             ).exists(),
         )
 
-    @patch("app.providers.services.get_media_metadata")
-    def test_home_view_shows_finale_badge(self, mock_get_media_metadata):
+    def test_home_view_shows_finale_badge(self):
         """Test home card marks the selected last episode as Finale."""
-        mock_get_media_metadata.return_value = mock_tv_with_seasons(8)
         season1 = Season.objects.get(
             user=self.user,
             item__media_id="1668",
