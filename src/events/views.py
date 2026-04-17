@@ -36,7 +36,7 @@ def calendar(request):
             date(int(year), int(month), 1) if month and year else timezone.localdate()
         )
         month, year = current_date.month, current_date.year
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         logger.warning("Invalid month or year provided: %s, %s", month, year)
         current_date = timezone.localdate()
         month, year = current_date.month, current_date.year

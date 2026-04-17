@@ -3031,9 +3031,6 @@
   .h-screen {
     height: 100vh;
   }
-  .max-h-20 {
-    max-height: calc(var(--spacing) * 20);
-  }
   .max-h-48 {
     max-height: calc(var(--spacing) * 48);
   }
@@ -3099,9 +3096,6 @@
   .w-6 {
     width: calc(var(--spacing) * 6);
   }
-  .w-7 {
-    width: calc(var(--spacing) * 7);
-  }
   .w-8 {
     width: calc(var(--spacing) * 8);
   }
@@ -3110,6 +3104,9 @@
   }
   .w-10 {
     width: calc(var(--spacing) * 10);
+  }
+  .w-12 {
+    width: calc(var(--spacing) * 12);
   }
   .w-15 {
     width: calc(var(--spacing) * 15);
@@ -3296,6 +3293,9 @@
   }
   .resize-none {
     resize: none;
+  }
+  .scroll-mt-20 {
+    scroll-margin-top: calc(var(--spacing) * 20);
   }
   .list-inside {
     list-style-position: inside;
@@ -3512,6 +3512,9 @@
   }
   .overflow-y-auto {
     overflow-y: auto;
+  }
+  .scroll-smooth {
+    scroll-behavior: smooth;
   }
   .rounded {
     border-radius: 0.25rem;
@@ -3877,6 +3880,9 @@
   }
   .pt-8 {
     padding-top: calc(var(--spacing) * 8);
+  }
+  .pr-1 {
+    padding-right: calc(var(--spacing) * 1);
   }
   .pr-2 {
     padding-right: calc(var(--spacing) * 2);
@@ -4956,6 +4962,11 @@
       display: block;
     }
   }
+  .md\:grid {
+    @media (width >= 48rem) {
+      display: grid;
+    }
+  }
   .md\:hidden {
     @media (width >= 48rem) {
       display: none;
@@ -5032,6 +5043,11 @@
   .md\:grid-cols-3 {
     @media (width >= 48rem) {
       grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  .md\:grid-cols-7 {
+    @media (width >= 48rem) {
+      grid-template-columns: repeat(7, minmax(0, 1fr));
     }
   }
   .md\:flex-row {

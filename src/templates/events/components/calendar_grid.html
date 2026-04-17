@@ -1,7 +1,7 @@
 {% load app_tags %}
 {% load events_tags %}
 
-<div class="grid grid-cols-7 gap-1 mb-2">
+<div class="hidden md:grid grid-cols-7 gap-1 mb-2">
   <div class="text-center text-sm font-medium text-gray-400 py-2">Mon</div>
   <div class="text-center text-sm font-medium text-gray-400 py-2">Tue</div>
   <div class="text-center text-sm font-medium text-gray-400 py-2">Wed</div>
@@ -11,24 +11,25 @@
   <div class="text-center text-sm font-medium text-gray-400 py-2">Sun</div>
 </div>
 
-<div class="grid grid-cols-7 gap-1">
+<div class="grid grid-cols-2 md:grid-cols-7 gap-1">
   {% for week in calendar %}
     {% for day in week %}
       {% if day == 0 %}
-        <div class="min-h-[130px] p-1 rounded-md relative opacity-0"></div>
+        <div class="hidden md:block min-h-[130px] p-1 rounded-md relative opacity-0"></div>
       {% else %}
-        <div class="min-h-[130px] p-1 rounded-md relative bg-base-muted-200 cursor-pointer hover:bg-base-muted-100 {% if day == today.day and month == today.month and year == today.year %}ring-2 ring-indigo-500{% endif %}">
-          <div class="text-right text-sm p-1 font-medium {% if day == today.day and month == today.month and year == today.year %}bg-indigo-500 text-white rounded-full w-7 h-7 flex items-center justify-center ml-auto{% endif %}">
-            {{ day }}
+        {% is_today day month year today as day_is_today %}
+        <div class="min-h-[130px] p-1 rounded-md relative bg-base-200 {% if day_is_today %}ring-2 ring-indigo-500{% endif %}">
+          <div class="text-right text-sm p-1 font-bold {% if day_is_today %}bg-indigo-500 text-white rounded-full w-12 h-7 flex items-center justify-center ml-auto scroll-mt-20{% endif %}" {% if day_is_today %}id="today"{% endif %}>
+            <span class="md:hidden pr-1">{% day_of_week_abbr day month year %}</span>{{ day }}
           </div>
-          <div class="mt-1 space-y-1 max-h-20 overflow-y-auto">
+          <div class="mt-1 space-y-1 overflow-y-auto">
             {% for release in release_dict|get_item:day %}
               <a href="{{ release.item|media_url }}" class="block">
-                <div class="flex items-center gap-1 px-1 py-0.5 text-xs rounded hover:bg-base-100 transition-colors">
+                <div class="flex items-center gap-1 px-1 py-0.5 text-xs rounded hover:bg-base-muted-200 transition-colors">
                   {% with color=release.item.media_type|media_color %}
                     {% icon release.item.media_type is_active=False extra_classes=color|add:" w-4 h-4 shrink-0" %}
                   {% endwith %}
-                  <span class="truncate" title="{{ release }} {{ release.display_time }}">{{ release }} {{ release.display_time }}</span>
+                  <span title="{{ release }} {{ release.display_time }}">{{ release }} <span class="text-indigo-400">{{ release.display_time }}</span></span>
                 </div>
               </a>
             {% endfor %}
