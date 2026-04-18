@@ -275,6 +275,11 @@ def media_details(request, source, media_type, media_id, title):  # noqa: ARG001
     )
     current_instance = user_medias[0] if user_medias else None
 
+    # TODO: for TV, filter episodes by is_hidden_override and episodes within specials
+    # seasons and override media_metadata["details"]["episodes"]
+
+    # TODO: for TV, hide seasons marked with is_hidden_override
+
     # Enrich related items with user tracking data
     if media_metadata.get("related"):
         for section_name, related_items in media_metadata["related"].items():
@@ -328,26 +333,28 @@ def _build_season_details_context(request, source, media_id, season_number):
             episodes_in_db,
         )
 
-    if current_instance:
-        hidden_episode_numbers = set(
-            Item.objects.filter(
-                media_id=media_id,
-                source=source,
-                media_type=MediaTypes.EPISODE.value,
-                season_number=season_number,
-                is_hidden_override=True,
-            ).values_list("episode_number", flat=True),
-        )
-        visible_episode_total = len(
-            [
-                episode
-                for episode in season_metadata["episodes"]
-                if episode["episode_number"] not in hidden_episode_numbers
-                and (episode["air_date"] or episode.get("history"))
-            ],
-        )
-        if visible_episode_total:
-            current_instance.max_progress = visible_episode_total
+    hidden_episode_numbers = set(
+        Item.objects.filter(
+            media_id=media_id,
+            source=source,
+            media_type=MediaTypes.EPISODE.value,
+            season_number=season_number,
+            is_hidden_override=True,
+        ).values_list("episode_number", flat=True),
+    )
+    visible_episodes = [
+        episode
+        for episode in season_metadata["episodes"]
+        if episode["episode_number"] not in hidden_episode_numbers
+    ]
+    visible_episode_total = len(visible_episodes)
+
+    if current_instance and visible_episode_total:
+        current_instance.max_progress = visible_episode_total
+
+    if season_metadata.get("details", {}).get("episodes") is not None:
+        season_metadata["details"]["episodes"] = visible_episode_total
+        season_metadata["episodes"] = visible_episodes
 
     # Enrich related items with user tracking data
     if season_metadata.get("related"):

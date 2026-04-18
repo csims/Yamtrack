@@ -13,6 +13,7 @@ from app.models import (
     Sources,
     Status,
 )
+from app.tests.utils import mock_tv_with_seasons
 
 
 class MediaDetailsViewTests(TestCase):
@@ -65,22 +66,7 @@ class MediaDetailsViewTests(TestCase):
     @patch("app.providers.tmdb.process_episodes")
     def test_season_details_view(self, mock_process_episodes, mock_get_metadata):
         """Test the season details view."""
-        mock_get_metadata.return_value = {
-            "title": "Test TV Show",
-            "media_id": "1668",
-            "source": Sources.TMDB.value,
-            "media_type": MediaTypes.TV.value,
-            "image": "http://example.com/image.jpg",
-            "season/1": {
-                "title": "Season 1",
-                "media_id": "1668",
-                "media_type": MediaTypes.SEASON.value,
-                "source": Sources.TMDB.value,
-                "image": "http://example.com/season.jpg",
-                "season_number": 1,
-                "episodes": [],
-            },
-        }
+        mock_get_metadata.return_value = mock_tv_with_seasons(1, media_id="1668")
 
         mock_process_episodes.return_value = [
             {
@@ -111,7 +97,8 @@ class MediaDetailsViewTests(TestCase):
         self.assertTemplateUsed(response, "app/media_details.html")
 
         self.assertIn("media", response.context)
-        self.assertEqual(response.context["media"]["title"], "Season 1")
+        self.assertEqual(response.context["media"]["title"], "Test TV Show")
+        self.assertEqual(response.context["media"]["season_title"], "Season 1")
         self.assertEqual(len(response.context["media"]["episodes"]), 1)
 
         mock_get_metadata.assert_called_once_with(
@@ -172,22 +159,12 @@ class MediaDetailsViewTests(TestCase):
                 related_season=season,
             )
 
-        mock_get_metadata.return_value = {
-            "title": "Pursuit of Jade",
-            "media_id": "279388",
-            "source": Sources.TMDB.value,
-            "media_type": MediaTypes.TV.value,
-            "image": "http://example.com/tv.jpg",
-            "season/1": {
-                "title": "Chasing Jade",
-                "media_id": "279388",
-                "media_type": MediaTypes.SEASON.value,
-                "source": Sources.TMDB.value,
-                "image": "http://example.com/season.jpg",
-                "season_number": 1,
-                "episodes": [{"episode_number": episode} for episode in range(1, 41)],
-            },
-        }
+        mock_get_metadata.return_value = mock_tv_with_seasons(
+            40,
+            media_id="279388",
+            title="Pursuit of Jade",
+            image="http://example.com/tv.jpg",
+        )
         mock_process_episodes.return_value = [
             {
                 "media_id": "279388",
@@ -220,12 +197,12 @@ class MediaDetailsViewTests(TestCase):
 
     @patch("app.providers.services.get_media_metadata")
     @patch("app.providers.tmdb.process_episodes")
-    def test_season_details_ignores_unknown_unwatched_episodes_for_progress(
+    def test_season_details_counts_unknown_unwatched_visible_episodes_for_progress(
         self,
         mock_process_episodes,
         mock_get_metadata,
     ):
-        """Season detail progress should ignore unknown-date unwatched episodes."""
+        """Season detail max progress should include visible unknown-date episodes."""
         tv_item = Item.objects.create(
             media_id="273174",
             source=Sources.TMDB.value,
@@ -269,22 +246,13 @@ class MediaDetailsViewTests(TestCase):
                 related_season=season,
             )
 
-        mock_get_metadata.return_value = {
-            "title": "The Bangkok Boy",
-            "media_id": "273174",
-            "source": Sources.TMDB.value,
-            "media_type": MediaTypes.TV.value,
-            "image": "http://example.com/tv.jpg",
-            "season/2": {
-                "title": "The Bangkok Boy",
-                "media_id": "273174",
-                "media_type": MediaTypes.SEASON.value,
-                "source": Sources.TMDB.value,
-                "image": "http://example.com/season.jpg",
-                "season_number": 2,
-                "episodes": [{"episode_number": episode} for episode in range(1, 14)],
-            },
-        }
+        mock_get_metadata.return_value = mock_tv_with_seasons(
+            12,
+            13,
+            media_id="273174",
+            title="The Bangkok Boy",
+            image="http://example.com/tv.jpg",
+        )
         aired_episode_count = 12
         mock_process_episodes.return_value = [
             {
@@ -318,7 +286,93 @@ class MediaDetailsViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["current_instance"].progress, 12)
-        self.assertEqual(response.context["current_instance"].max_progress, 12)
+        self.assertEqual(response.context["current_instance"].max_progress, 13)
+        self.assertEqual(response.context["media"]["details"]["episodes"], 13)
+
+    @patch("app.providers.services.get_media_metadata")
+    @patch("app.providers.tmdb.process_episodes")
+    def test_season_details_hides_hidden_episodes_from_context_and_totals(
+        self,
+        mock_process_episodes,
+        mock_get_metadata,
+    ):
+        """Season details should omit hidden episodes and reduce displayed totals."""
+        tv_item = Item.objects.create(
+            media_id="99001",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.TV.value,
+            title="Hidden Episode Show",
+            image="http://example.com/tv.jpg",
+        )
+        season_item = Item.objects.create(
+            media_id="99001",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Hidden Episode Show",
+            image="http://example.com/season.jpg",
+            season_number=1,
+        )
+        tv = TV.objects.create(
+            item=tv_item,
+            user=self.user,
+            status=Status.PLANNING.value,
+        )
+        Season.objects.create(
+            item=season_item,
+            user=self.user,
+            related_tv=tv,
+            status=Status.IN_PROGRESS.value,
+        )
+        Item.objects.create(
+            media_id="99001",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            title="Hidden Episode Show",
+            image="http://example.com/episode2.jpg",
+            season_number=1,
+            episode_number=2,
+            is_hidden_override=True,
+        )
+
+        mock_get_metadata.return_value = mock_tv_with_seasons(
+            4,
+            media_id="99001",
+            title="Hidden Episode Show",
+            image="http://example.com/tv.jpg",
+        )
+        mock_process_episodes.return_value = [
+            {
+                "media_id": "99001",
+                "source": Sources.TMDB.value,
+                "media_type": MediaTypes.EPISODE.value,
+                "season_number": 1,
+                "episode_number": episode_number,
+                "title": f"Episode {episode_number}",
+                "air_date": None,
+                "history": [],
+            }
+            for episode_number in range(1, 5)
+        ]
+
+        response = self.client.get(
+            reverse(
+                "season_details",
+                kwargs={
+                    "source": Sources.TMDB.value,
+                    "media_id": "99001",
+                    "title": "hidden-episode-show",
+                    "season_number": 1,
+                },
+            ),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["current_instance"].max_progress, 3)
+        self.assertEqual(response.context["media"]["details"]["episodes"], 3)
+        self.assertEqual(
+            [ep["episode_number"] for ep in response.context["media"]["episodes"]],
+            [1, 3, 4],
+        )
 
     @patch("app.views.Item.fetch_releases")
     @patch("app.providers.tmdb.process_episodes")

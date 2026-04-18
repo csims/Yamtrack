@@ -194,6 +194,44 @@ class Metadata(TestCase):
 
         self.assertEqual(result[0]["image"], "http://example.com/season.jpg")
 
+    def test_tmdb_process_season_uses_latest_episode_with_air_date_for_last_air_date(
+        self,
+    ):
+        """Season last_air_date should ignore trailing episodes without an air date."""
+        response = {
+            "name": "Season 1",
+            "poster_path": "/season.jpg",
+            "season_number": 1,
+            "air_date": "2024-01-01",
+            "overview": "overview",
+            "vote_average": 8.5,
+            "episodes": [
+                {
+                    "episode_number": 1,
+                    "air_date": "2024-01-01",
+                    "runtime": 45,
+                    "vote_count": 10,
+                },
+                {
+                    "episode_number": 2,
+                    "air_date": "2024-01-08",
+                    "runtime": 45,
+                    "vote_count": 12,
+                },
+                {
+                    "episode_number": 3,
+                    "air_date": None,
+                    "runtime": 45,
+                    "vote_count": 0,
+                },
+            ],
+        }
+
+        result = tmdb.process_season(response)
+
+        self.assertEqual(result["details"]["last_air_date"], "2024-01-08")
+        self.assertEqual(result["details"]["episodes"], 3)
+
     @patch("app.providers.tmdb.tv_with_seasons")
     def test_tmdb_episode(self, mock_tv_with_seasons):
         """Test the episode method for TMDB episodes."""

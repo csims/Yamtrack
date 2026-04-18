@@ -487,7 +487,8 @@ def get_start_date(date):
 def get_end_date(response):
     """Return the last air date for the season."""
     if response["episodes"]:
-        return response["episodes"][-1]["air_date"]
+        valid_eps = [ep for ep in response["episodes"] if ep["air_date"]]
+        return valid_eps[-1]["air_date"] if valid_eps else None
 
     return None
 

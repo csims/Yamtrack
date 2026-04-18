@@ -16,59 +16,9 @@ from app.models import (
     Sources,
     Status,
 )
+from app.tests.utils import mock_tv_with_seasons
 from events.models import Event
 from users.models import HomeSortChoices
-
-
-def mock_tv_with_seasons(*episode_counts, title="Test TV Show", image=None):
-    """Return minimal tv_with_seasons metadata for Episode.save tests."""
-    if image is None:
-        image = "http://example.com/image.jpg"
-
-    data = {
-        "title": title,
-        "image": image,
-        "related": {
-            "seasons": [
-                {"season_number": index, "image": image}
-                for index in range(1, len(episode_counts) + 1)
-            ],
-        },
-    }
-    for index, episode_count in enumerate(episode_counts, start=1):
-        data[f"season/{index}"] = {
-            "episodes": [
-                {"episode_number": episode_number}
-                for episode_number in range(1, episode_count + 1)
-            ],
-        }
-    return data
-
-
-def mock_metadata_side_effect(*episode_counts, title="Test TV Show", image=None):
-    """Return a minimal get_media_metadata side effect for TV/season lookups."""
-    tv_with_seasons = mock_tv_with_seasons(
-        *episode_counts,
-        title=title,
-        image=image,
-    )
-
-    def side_effect(
-        media_type,
-        media_id,  # noqa: ARG001
-        source,  # noqa: ARG001
-        season_numbers=None,
-        episode_number=None,  # noqa: ARG001
-    ):
-        if media_type == "tv_with_seasons":
-            return tv_with_seasons
-        if media_type == MediaTypes.SEASON.value:
-            season_number = (season_numbers or [None])[0]
-            return tv_with_seasons[f"season/{season_number}"]
-        msg = f"Unexpected get_media_metadata call in HomeViewTests: {media_type}"
-        raise AssertionError(msg)
-
-    return side_effect
 
 
 class HomeViewTests(TestCase):
