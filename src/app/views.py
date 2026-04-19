@@ -15,11 +15,26 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.utils.timezone import datetime
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
+from simple_history.utils import bulk_update_with_history
 
 from app import config, helpers, history_processor
 from app import statistics as stats
-from app.forms import EpisodeForm, ManualItemForm, get_form_class
-from app.models import TV, BasicMedia, Item, MediaTypes, Season, Sources, Status
+from app.forms import (
+    EpisodeForm,
+    EpisodeSharedFieldsForm,
+    ManualItemForm,
+    get_form_class,
+)
+from app.models import (
+    TV,
+    BasicMedia,
+    Episode,
+    Item,
+    MediaTypes,
+    Season,
+    Sources,
+    Status,
+)
 from app.providers import manual, services, tmdb
 from app.templatetags import app_tags
 from users.models import HomeSortChoices, MediaSortChoices, MediaStatusChoices
@@ -442,6 +457,73 @@ def update_media_score(request, media_type, instance_id):
             "score": score,
         },
     )
+
+
+@require_POST
+def update_episode_shared_fields(
+    request,
+    source,
+    media_id,
+    season_number,
+    episode_number,
+):
+    """Update score and notes across all watches of an episode for a user."""
+    episodes = list(
+        BasicMedia.objects.filter_media(
+            request.user,
+            media_id,
+            MediaTypes.EPISODE.value,
+            source,
+            season_number=season_number,
+            episode_number=episode_number,
+        ),
+    )
+    if not episodes:
+        return HttpResponseBadRequest("Episode not found")
+
+    form = EpisodeSharedFieldsForm(request.POST)
+    if not form.is_valid():
+        logger.error("Episode shared fields validation failed: %s", form.errors)
+        return HttpResponseBadRequest("Invalid form data")
+
+    fields_to_update = []
+    if "score" in request.POST:
+        fields_to_update.append("score")
+    if "notes" in request.POST:
+        fields_to_update.append("notes")
+
+    if not fields_to_update:
+        return HttpResponseBadRequest("No shared fields provided")
+
+    for episode in episodes:
+        for field_name in fields_to_update:
+            setattr(episode, field_name, form.cleaned_data[field_name])
+
+    bulk_update_with_history(
+        episodes,
+        Episode,
+        fields_to_update,
+        default_user=request.user,
+    )
+    logger.info(
+        "Updated shared episode fields %s for %s watches of %s S%02dE%02d",
+        fields_to_update,
+        len(episodes),
+        media_id,
+        season_number,
+        episode_number,
+    )
+
+    if request.headers.get("HX-Request"):
+        return _render_season_episode_update(
+            request,
+            source,
+            media_id,
+            season_number,
+            episode_number,
+        )
+
+    return helpers.redirect_back(request)
 
 
 def _sync_season_episode_items(source, media_id, season_number, metadata, title):
@@ -1021,7 +1103,12 @@ def history_modal(
     total_medias = user_medias.count()
     timeline_entries = []
     for index, media in enumerate(user_medias, start=1):
-        if history := media.history.all():
+        if media_type == MediaTypes.EPISODE.value:
+            history = media.history.filter(history_type="+")
+        else:
+            history = media.history.all()
+
+        if history:
             media_entry_number = total_medias - index + 1
             timeline_entries.extend(
                 history_processor.process_history_entries(

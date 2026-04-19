@@ -59,6 +59,11 @@ urlpatterns = [
     path("media_delete", views.media_delete, name="media_delete"),
     path("episode_save", views.episode_save, name="episode_save"),
     path(
+        "episode/update-shared/<source:source>/<str:media_id>/<int:season_number>/<int:episode_number>",
+        views.update_episode_shared_fields,
+        name="update_episode_shared_fields",
+    ),
+    path(
         "season/ignore/<source:source>/<str:media_id>/<int:season_number>",
         views.toggle_season_ignore,
         name="toggle_season_ignore",

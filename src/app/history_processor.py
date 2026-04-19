@@ -117,6 +117,10 @@ def collect_creation_changes(new_record, history_model, media_type):
             or field.name == "id"
             or not hasattr(new_record, field.attname)
             or (field.name == "progress" and media_type == MediaTypes.MOVIE.value)
+            or (
+                media_type == MediaTypes.EPISODE.value
+                and field.name in {"score", "notes"}
+            )
         ):
             continue
 

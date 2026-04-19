@@ -137,6 +137,8 @@ def process_episodes(season_metadata, episodes_in_db):
 
     for episode in season_metadata["episodes"]:
         episode_number = episode["episode_number"]
+        episode_history = tracked_episodes.get(episode_number, [])
+        shared_episode = episode_history[0] if episode_history else None
 
         episode_data = {
             "source": Sources.MANUAL.value,
@@ -148,7 +150,9 @@ def process_episodes(season_metadata, episodes_in_db):
             "image": episode["image"],
             "title": episode["title"],
             "overview": "No synopsis available.",
-            "history": tracked_episodes.get(episode_number, []),
+            "history": episode_history,
+            "score": shared_episode.score if shared_episode else None,
+            "notes": shared_episode.notes if shared_episode else "",
         }
         episodes_metadata.append(episode_data)
 

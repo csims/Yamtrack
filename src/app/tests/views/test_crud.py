@@ -310,10 +310,12 @@ class EpisodeHtmxCrudTests(TestCase):
                 "air_date": "2023-01-01",
                 "runtime": "22m",
                 "overview": "Pilot episode overview.",
+                "score": 8.5,
+                "notes": "Shared episode notes",
                 "history": [
                     {
                         "id": 1,
-                        "date": end_date,  # TODO: should this be date or end_date?
+                        "end_date": end_date,
                     },
                 ],
             },
@@ -392,6 +394,90 @@ class EpisodeHtmxCrudTests(TestCase):
         self.assertContains(response, 'id="season-tracking-sidebar-season-1668-1"')
         self.assertContains(response, 'hx-swap-oob="outerHTML"', count=2)
         self.assertFalse(Episode.objects.filter(pk=watch.pk).exists())
+
+    @patch("app.views.tmdb.process_episodes")
+    @patch("app.views.services.get_media_metadata")
+    def test_episode_shared_notes_update_htmx_returns_updated_fragments(
+        self,
+        mock_get_metadata,
+        mock_process_episodes,
+    ):
+        """HTMX shared notes updates should refresh the episode row in place."""
+        mock_get_metadata.return_value = self._mock_season_metadata()
+        mock_process_episodes.return_value = self._mock_processed_episodes()
+
+        second_watch = Episode.objects.create(
+            item=self.episode_item,
+            related_season=self.season,
+            end_date=datetime.datetime(2023, 6, 1, 0, 0, tzinfo=datetime.UTC),
+        )
+
+        response = self.client.post(
+            reverse(
+                "update_episode_shared_fields",
+                kwargs={
+                    "source": Sources.TMDB.value,
+                    "media_id": "1668",
+                    "season_number": 1,
+                    "episode_number": 1,
+                },
+            )
+            + "?next=/season",
+            data={"notes": "Shared episode notes"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="episode-row-episode-1668-1-1"')
+        self.assertContains(response, "Edit notes")
+        self.assertContains(response, "Shared episode notes")
+        self.assertContains(response, 'hx-swap-oob="outerHTML"', count=2)
+
+        self.episode.refresh_from_db()
+        second_watch.refresh_from_db()
+        self.assertEqual(self.episode.notes, "Shared episode notes")
+        self.assertEqual(second_watch.notes, "Shared episode notes")
+
+    @patch("app.views.tmdb.process_episodes")
+    @patch("app.views.services.get_media_metadata")
+    def test_episode_shared_score_update_propagates_to_all_watches(
+        self,
+        mock_get_metadata,
+        mock_process_episodes,
+    ):
+        """Shared episode score updates should affect every watch row."""
+        mock_get_metadata.return_value = self._mock_season_metadata()
+        mock_process_episodes.return_value = self._mock_processed_episodes()
+
+        second_watch = Episode.objects.create(
+            item=self.episode_item,
+            related_season=self.season,
+            end_date=datetime.datetime(2023, 6, 1, 0, 0, tzinfo=datetime.UTC),
+        )
+
+        response = self.client.post(
+            reverse(
+                "update_episode_shared_fields",
+                kwargs={
+                    "source": Sources.TMDB.value,
+                    "media_id": "1668",
+                    "season_number": 1,
+                    "episode_number": 1,
+                },
+            )
+            + "?next=/season",
+            data={"score": 8.5},
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="episode-row-episode-1668-1-1"')
+        self.assertContains(response, "rating: 8.5")
+
+        self.episode.refresh_from_db()
+        second_watch.refresh_from_db()
+        self.assertEqual(self.episode.score, 8.5)
+        self.assertEqual(second_watch.score, 8.5)
 
     def test_unwatch_episode(self):
         """Test unwatching of an episode through views."""

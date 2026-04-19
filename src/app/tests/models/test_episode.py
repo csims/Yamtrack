@@ -247,3 +247,40 @@ class EpisodeStatusTests(TestCase):
 
         self.tv.refresh_from_db()
         self.assertEqual(self.tv.status, Status.PLANNING.value)
+
+    @patch("app.models.providers.services.get_media_metadata")
+    def test_new_watch_inherits_existing_shared_score_and_notes(
+        self,
+        mock_get_metadata,
+    ):
+        """New watches should inherit the episode shared score and notes."""
+        mock_get_metadata.return_value = {
+            "season/1": {
+                "episodes": [{"episode_number": 1}, {"episode_number": 2}],
+            },
+            "related": {
+                "seasons": [{"season_number": 1}, {"season_number": 2}],
+            },
+        }
+
+        Episode.objects.create(
+            item=self.episode_item,
+            related_season=self.season,
+            end_date=timezone.now(),
+            score=8.5,
+            notes="Shared notes",
+        )
+
+        self.season.watch(1, timezone.now())
+
+        latest_watch = (
+            Episode.objects.filter(
+                related_season=self.season,
+                item=self.episode_item,
+            )
+            .order_by("-end_date", "-created_at")
+            .first()
+        )
+
+        self.assertEqual(latest_watch.score, 8.5)
+        self.assertEqual(latest_watch.notes, "Shared notes")

@@ -361,3 +361,24 @@ class EpisodeForm(forms.ModelForm):
             self.fields["end_date"].widget = forms.DateInput(
                 attrs={"type": "date"},
             )
+
+
+class EpisodeSharedFieldsForm(forms.Form):
+    """Form for episode fields shared across all watches of an episode."""
+
+    score = forms.DecimalField(
+        required=False,
+        max_digits=3,
+        decimal_places=1,
+        min_value=0,
+        max_value=10,
+        widget=forms.NumberInput(
+            attrs={"min": 0, "max": 10, "step": 0.1, "placeholder": "0-10"},
+        ),
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(
+            attrs={"placeholder": "Add any notes or comments...", "rows": "5"},
+        ),
+    )

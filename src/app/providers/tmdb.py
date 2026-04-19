@@ -615,6 +615,8 @@ def process_episodes(season_metadata, episodes_in_db):
             get_image_url(episode.get("still_path")),
             season_image,
         )
+        episode_history = tracked_episodes.get(episode_number, [])
+        shared_episode = episode_history[0] if episode_history else None
 
         episodes_metadata.append(
             {
@@ -627,7 +629,9 @@ def process_episodes(season_metadata, episodes_in_db):
                 "image": episode_image,
                 "title": episode["name"],
                 "overview": episode["overview"],
-                "history": tracked_episodes.get(episode_number, []),
+                "history": episode_history,
+                "score": shared_episode.score if shared_episode else None,
+                "notes": shared_episode.notes if shared_episode else "",
                 "runtime": get_readable_duration(episode["runtime"]),
             },
         )

@@ -5,6 +5,7 @@ from django.test import TestCase
 from app.forms import (
     AnimeForm,
     EpisodeForm,
+    EpisodeSharedFieldsForm,
     GameForm,
     ManualItemForm,
     SeasonForm,
@@ -100,6 +101,25 @@ class BasicMediaForm(TestCase):
             "end_date": "2023-06-01T12:00:00Z",
         }
         form = EpisodeForm(data=form_data)
+        self.assertTrue(form.is_valid())
+
+    def test_valid_episode_shared_fields_form(self):
+        """Test the episode shared fields form with valid data."""
+        form = EpisodeSharedFieldsForm(
+            data={
+                "score": 8.5,
+                "notes": "Shared episode notes",
+            },
+        )
+        self.assertTrue(form.is_valid())
+
+    def test_valid_episode_shared_fields_form_with_blank_notes(self):
+        """Blank notes should still validate so episode notes can be cleared."""
+        form = EpisodeSharedFieldsForm(
+            data={
+                "notes": "",
+            },
+        )
         self.assertTrue(form.is_valid())
 
 

@@ -1,93 +1,205 @@
 {% load app_tags %}
 
 {% component_id 'episode-row' episode as episode_row_id %}
-<div id="{% component_id 'episode-row' episode %}"
-     class="bg-base-100 rounded-lg overflow-hidden shadow-lg">
-  <div class="flex flex-col md:flex-row">
-    <div class="md:w-64 md:pl-2 shrink-0 flex relative overflow-clip md:overflow-visible">
-      <div class="absolute bg-cover blur-sm contain h-full left-0 top-0 w-full" style="background-image: url('{{ episode.image }}')"></div>
-      <img src="{{ IMG_NONE }}"
-           alt="E{{ episode.episode_number }}"
-           data-src="{{ episode.image }}"
-           class="lazyload aspect-video object-contain z-1 m-auto">
-    </div>
-    <div class="py-3 flex-1 flex flex-col">
-      <div class="flex-1">
-        <div class="flex justify-between items-start mb-2 space-x-2 px-4">
-          <div>
-            <h2 class="text-xl font-semibold mb-1">{{ episode.title }}</h2>
-            <p class="text-sm text-gray-400">
-              Episode {{ episode.episode_number }} • {{ episode.air_date|default_if_none:"Unknown air date" }}
-              {% if episode.runtime %}• {{ episode.runtime }}{% endif %}
-            </p>
-          </div>
-        </div>
-        <div class="flex space-x-2 mb-2 px-4">
-          <div x-data="{ trackOpen: false }">
-            <button @click="trackOpen = true"
-                    title="Track Episode"
-                    class="btn btn-circle btn-sm btn-accent">
-              {% if episode.history %}
-                {% include "app/icons/eye.svg" with classes="w-4 h-4" %}
-              {% else %}
-                {% include "app/icons/eye-closed.svg" with classes="w-4 h-4" %}
-              {% endif %}
-            </button>
-
-            {% include "app/components/fill_track_episode.html" with request=request media=media episode=episode episode_title=episode.title csrf_token=csrf_token TRACK_TIME=TRACK_TIME use_htmx="true" episode_hx_target_id=episode_row_id return_url=page_url only %}
-          </div>
-
-          <div x-data="{ listsOpen: false }">
-            <button class="btn btn-circle btn-sm btn-success"
-                    title="Add to custom lists"
-                    hx-get="{% media_view_url 'lists_modal' episode %}"
-                    hx-vals='{"return_url": "{{ page_url|urlencode }}"}'
-                    hx-target="#{% component_id 'lists' episode %}"
-                    hx-trigger="click once"
-                    @click="listsOpen = true">
-              {% include "app/icons/list-add.svg" with classes="w-4 h-4" %}
-            </button>
-
-            <div x-show="listsOpen"
-                 @keydown.escape.window="listsOpen = false"
-                 class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div class="w-96 max-h-[90vh] px-4 md:px-0 relative z-60"
-                   @click.outside="listsOpen = false">
-                <div id="{% component_id 'lists' episode %}"></div>
-              </div>
-            </div>
-          </div>
-
-          <div x-data="{ historyOpen: false }">
-            <button class="btn btn-circle btn-sm btn-warning"
-                    title="View your activity history"
-                    hx-get="{% media_view_url 'history_modal' episode %}"
-                    hx-vals='{"return_url": "{{ page_url|urlencode }}"}'
-                    hx-target="#{% component_id 'history' episode %}"
-                    hx-trigger="click once"
-                    @click="historyOpen = true">
-              {% include "app/icons/history.svg" with classes="w-4 h-4" %}
-            </button>
-            <div x-show="historyOpen"
-                 @keydown.escape.window="historyOpen = false"
-                 class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div class="w-96 max-h-[90vh] px-4 md:px-0 relative z-60"
-                   @click.outside="historyOpen = false">
-                <div id="{% component_id 'history' episode %}"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="{% if episode.history %}md:h-[calc(2*1.5rem)]{% else %}md:h-[calc(3*1.5rem)]{% endif %} md:overflow-y-auto px-4">
-          <p class="text-sm text-gray-300 leading-relaxed text-pretty">{{ episode.overview }}</p>
-        </div>
+<div id="{% component_id 'episode-row' episode %}">
+  <div class="bg-base-100 rounded-lg overflow-hidden shadow-lg">
+    <div class="flex flex-col md:flex-row">
+      <div class="md:w-64 md:pl-2 shrink-0 flex relative overflow-clip md:overflow-visible">
+        <div class="absolute bg-cover blur-sm contain h-full left-0 top-0 w-full" style="background-image: url('{{ episode.image }}')"></div>
+        <img src="{{ IMG_NONE }}"
+            alt="E{{ episode.episode_number }}"
+            data-src="{{ episode.image }}"
+            class="lazyload aspect-video object-contain z-1 m-auto">
       </div>
-      {% if episode.history %}
-        <p class="text-xs text-gray-400 mt-2 px-4">
-          Last watched: {{ episode.history.0.end_date|date_tracker_format|default_if_none:"No date provided" }}
-          {% if episode.history|length > 1 %}• Watched {{ episode.history|length }} times{% endif %}
-        </p>
-      {% endif %}
+      <div class="py-3 flex-1 flex flex-col">
+        <div class="flex-1">
+          <div class="flex justify-between items-start mb-2 space-x-2 px-4">
+            <div>
+              <h2 class="text-xl font-semibold mb-1">{{ episode.title }}</h2>
+              <p class="text-sm text-gray-400">
+                Episode {{ episode.episode_number }} • {{ episode.air_date|default_if_none:"Unknown air date" }}
+                {% if episode.runtime %}• {{ episode.runtime }}{% endif %}
+              </p>
+            </div>
+          </div>
+          <div class="flex space-x-2 mb-2 px-4">
+            <div x-data="{ trackOpen: false }">
+              <button @click="trackOpen = true"
+                      title="Track Episode"
+                      class="btn btn-circle btn-sm btn-accent">
+                {% if episode.history %}
+                  {% include "app/icons/eye.svg" with classes="w-4 h-4" %}
+                {% else %}
+                  {% include "app/icons/eye-closed.svg" with classes="w-4 h-4" %}
+                {% endif %}
+              </button>
+
+              {% include "app/components/fill_track_episode.html" with request=request media=media episode=episode episode_title=episode.title csrf_token=csrf_token TRACK_TIME=TRACK_TIME use_htmx="true" episode_hx_target_id=episode_row_id return_url=page_url only %}
+            </div>
+
+            <div x-data="{ listsOpen: false }">
+              <button class="btn btn-circle btn-sm btn-success"
+                      title="Add to custom lists"
+                      hx-get="{% media_view_url 'lists_modal' episode %}"
+                      hx-vals='{"return_url": "{{ page_url|urlencode }}"}'
+                      hx-target="#{% component_id 'lists' episode %}"
+                      hx-trigger="click once"
+                      @click="listsOpen = true">
+                {% include "app/icons/list-add.svg" with classes="w-4 h-4" %}
+              </button>
+
+              <div x-show="listsOpen"
+                  @keydown.escape.window="listsOpen = false"
+                  class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div class="w-96 max-h-[90vh] px-4 md:px-0 relative z-60"
+                    @click.outside="listsOpen = false">
+                  <div id="{% component_id 'lists' episode %}"></div>
+                </div>
+              </div>
+            </div>
+
+            <div x-data="{ historyOpen: false }">
+              <button class="btn btn-circle btn-sm btn-warning"
+                      title="View your activity history"
+                      hx-get="{% media_view_url 'history_modal' episode %}"
+                      hx-vals='{"return_url": "{{ page_url|urlencode }}"}'
+                      hx-target="#{% component_id 'history' episode %}"
+                      hx-trigger="click once"
+                      @click="historyOpen = true">
+                {% include "app/icons/history.svg" with classes="w-4 h-4" %}
+              </button>
+              <div x-show="historyOpen"
+                  @keydown.escape.window="historyOpen = false"
+                  class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div class="w-96 max-h-[90vh] px-4 md:px-0 relative z-60"
+                    @click.outside="historyOpen = false">
+                  <div id="{% component_id 'history' episode %}"></div>
+                </div>
+              </div>
+            </div>
+
+            {% if episode.history %}
+              <div x-data="{ showRatingPopup: false, rating: {{ episode.score|default:'null' }}, hoverRating: null, isHovering: false }"
+                   class="relative">
+                <button @click="showRatingPopup = !showRatingPopup"
+                        class="btn btn-neutral btn-ghost btn-sm px-2 min-h-0 h-8 text-gray-300 hover:text-white">
+                  {% include "app/icons/star.svg" with classes="w-4 h-4 mr-1 text-yellow-400 fill-yellow-400" %}
+                  <template x-if="rating">
+                    <span x-text="`${rating}/10`"></span>
+                  </template>
+                  <template x-if="!rating">
+                    <span>-</span>
+                  </template>
+                </button>
+
+                <div x-show="showRatingPopup"
+                     x-cloak
+                     @click.outside="showRatingPopup = false; isHovering = false"
+                     class="absolute left-[calc(50%-125px)] top-full mt-2 p-3 bg-base-100 rounded-lg shadow-lg z-10 w-[250px] border border-gray-700"
+                     @mouseenter="isHovering = true"
+                     @mouseleave="isHovering = false; hoverRating = null">
+                  <div class="flex justify-between mb-1">
+                    {% with rating_range=10|get_range %}
+                      {% for rating_value in rating_range %}
+                        <button @click="rating = {{ rating_value }}; showRatingPopup = false; isHovering = false"
+                                @mouseenter="hoverRating = {{ rating_value }}"
+                                hx-post="{% url 'update_episode_shared_fields' source=episode.source media_id=episode.media_id season_number=episode.season_number episode_number=episode.episode_number %}?next={{ page_url|urlencode }}"
+                                hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                                hx-target="#{{ episode_row_id }}"
+                                hx-vals='{"score": {{ rating_value }} }'
+                                hx-trigger="click"
+                                hx-swap="outerHTML"
+                                class="focus:outline-none flex flex-col items-center cursor-pointer">
+                          <div :class="{ 'text-yellow-400': {{ rating_value }} <= (isHovering ? hoverRating : rating), 'text-gray-600': {{ rating_value }} > (isHovering ? hoverRating : rating) }">
+                            {% include "app/icons/star.svg" with classes="w-5 h-5 hover:scale-110 transition-transform" %}
+                          </div>
+                          <span class="text-xs mt-1 text-gray-400">{{ rating_value }}</span>
+                        </button>
+                      {% endfor %}
+                    {% endwith %}
+                  </div>
+                </div>
+              </div>
+
+              <div x-data="{ notesOpen: false }">
+                <button @click="notesOpen = true"
+                        class="btn btn-link btn-sm text-indigo-400 no-underline hover:underline p-0">
+                  {% if episode.notes %}
+                    Edit notes
+                  {% else %}
+                    Add notes
+                  {% endif %}
+                </button>
+
+                <div x-show="notesOpen"
+                     x-cloak
+                     @keydown.escape.window="notesOpen = false"
+                     class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                  <div class="w-[420px] max-h-[90vh] px-4 md:px-0 relative z-60"
+                       @click.outside="notesOpen = false">
+                    <div class="bg-base-100 p-6 rounded-lg max-h-[70svh] overflow-y-auto">
+                      <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold text-white">Episode Notes</h2>
+                        <button class="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                                @click="notesOpen = false">{% include "app/icons/x.svg" with classes="w-5 h-5" %}</button>
+                      </div>
+
+                      <form method="post"
+                            hx-post="{% url 'update_episode_shared_fields' source=episode.source media_id=episode.media_id season_number=episode.season_number episode_number=episode.episode_number %}?next={{ page_url|urlencode }}"
+                            hx-target="#{{ episode_row_id }}"
+                            hx-swap="outerHTML"
+                            @htmx:after-request="if ($event.detail.successful) notesOpen = false">
+                        {% csrf_token %}
+                        <label class="block text-sm font-medium mb-2 text-gray-300">Notes</label>
+                        <textarea name="notes"
+                                  rows="6"
+                                  class="w-full p-3 bg-base-muted-200 rounded-md text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                  placeholder="Add any notes or comments...">{{ episode.notes }}</textarea>
+
+                        <div class="flex justify-end mt-6">
+                          <button type="submit"
+                                  class="btn btn-accent">
+                            Save notes
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+          <div class="{% if episode.history %}md:h-[calc(2*1.5rem)]{% else %}md:h-[calc(3*1.5rem)]{% endif %} md:overflow-y-auto px-4">
+            <p class="text-sm text-gray-300 leading-relaxed text-pretty">{{ episode.overview }}</p>
+          </div>
+        </div>
+        {% if episode.history %}
+          <p class="text-xs text-gray-400 mt-2 px-4">
+            Last watched: {{ episode.history.0.end_date|date_tracker_format|default_if_none:"No date provided" }}
+            {% if episode.history|length > 1 %}• Watched {{ episode.history|length }} times{% endif %}
+          </p>
+        {% endif %}
+      </div>
     </div>
   </div>
+  {% if episode.notes %}
+    <div class="mt-2 px-4">
+      <div class="flex items-start">
+        {% include "app/icons/page-empty.svg" with classes="w-4 h-4 mr-2 text-yellow-400 shrink-0 mt-0.5" %}
+        <div class="font-medium font-display text-gray-400 mb-1 text-sm">NOTES</div>
+      </div>
+
+      <div x-data="{ isExpanded: false, isClamped: false, checkClamp() { const element = this.$refs.notesText; this.isClamped = element.scrollHeight > element.clientHeight; } }"
+           x-init="$nextTick(() => checkClamp())">
+        <p x-ref="notesText"
+           :class="isExpanded ? '' : 'line-clamp-2'"
+           class="text-sm text-gray-300">{{ episode.notes|linebreaksbr }}</p>
+        <button x-show="isClamped"
+                @click="isExpanded = !isExpanded"
+                class="text-indigo-400 hover:text-indigo-300 text-xs mt-1 focus:outline-none transition-colors cursor-pointer">
+          <span x-text="isExpanded ? 'Show less' : 'Read more'"></span>
+        </button>
+      </div>
+    </div>
+  {% endif %}
 </div>

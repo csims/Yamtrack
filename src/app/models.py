@@ -2187,11 +2187,21 @@ class Season(Media):
     def watch(self, episode_number, end_date):
         """Create or add a repeat to an episode of the season."""
         item = self.get_episode_item(episode_number)
+        shared_episode = (
+            Episode.objects.filter(
+                related_season=self,
+                item=item,
+            )
+            .order_by("-end_date", "-created_at")
+            .first()
+        )
 
         episode = Episode.objects.create(
             related_season=self,
             item=item,
             end_date=end_date,
+            score=shared_episode.score if shared_episode else None,
+            notes=shared_episode.notes if shared_episode else "",
         )
         logger.info(
             "%s created successfully.",
@@ -2392,6 +2402,18 @@ class Episode(models.Model):
         related_name="episodes",
     )
     end_date = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True, default="")
+    score = models.DecimalField(
+        null=True,
+        blank=True,
+        max_digits=3,
+        decimal_places=1,
+        validators=[
+            DecimalValidator(3, 1),
+            MinValueValidator(0),
+            MaxValueValidator(10),
+        ],
+    )
 
     class Meta:
         """Meta options for the model."""
