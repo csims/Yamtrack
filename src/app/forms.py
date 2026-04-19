@@ -17,6 +17,8 @@ from app.models import (
     Sources,
 )
 
+NOTES_MAX_LENGTH = 5000
+
 
 def get_form_class(media_type):
     """Return the form class for the media type."""
@@ -197,6 +199,17 @@ class MediaForm(forms.ModelForm):
     media_type = forms.CharField(widget=forms.HiddenInput(), required=True)
     source = forms.CharField(widget=forms.HiddenInput(), required=True)
     media_id = forms.CharField(widget=forms.HiddenInput(), required=True)
+    notes = forms.CharField(
+        required=False,
+        max_length=NOTES_MAX_LENGTH,
+        widget=forms.Textarea(
+            attrs={
+                "placeholder": "Add any notes or comments...",
+                "rows": "5",
+                "maxlength": NOTES_MAX_LENGTH,
+            },
+        ),
+    )
 
     class Meta:
         """Define fields and input types."""
@@ -220,9 +233,6 @@ class MediaForm(forms.ModelForm):
             "end_date": forms.DateTimeInput(attrs={"type": "datetime-local"})
             if settings.TRACK_TIME
             else forms.DateInput(attrs={"type": "date"}),
-            "notes": forms.Textarea(
-                attrs={"placeholder": "Add any notes or comments...", "rows": "5"},
-            ),
         }
 
 
@@ -378,7 +388,12 @@ class EpisodeSharedFieldsForm(forms.Form):
     )
     notes = forms.CharField(
         required=False,
+        max_length=NOTES_MAX_LENGTH,
         widget=forms.Textarea(
-            attrs={"placeholder": "Add any notes or comments...", "rows": "5"},
+            attrs={
+                "placeholder": "Add any notes or comments...",
+                "rows": "5",
+                "maxlength": NOTES_MAX_LENGTH,
+            },
         ),
     )

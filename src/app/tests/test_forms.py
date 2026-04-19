@@ -122,6 +122,34 @@ class BasicMediaForm(TestCase):
         )
         self.assertTrue(form.is_valid())
 
+    def test_media_form_rejects_notes_longer_than_5000_characters(self):
+        """Notes should be capped at 5000 characters for media forms."""
+        form_data = {
+            "media_id": "1",
+            "source": Sources.MAL.value,
+            "media_type": MediaTypes.ANIME.value,
+            "user": self.user.id,
+            "score": 7.5,
+            "progress": 25,
+            "status": Status.PAUSED.value,
+            "start_date": "2023-02-01",
+            "end_date": "2023-06-30",
+            "notes": "a" * 5001,
+        }
+        form = AnimeForm(data=form_data)
+        self.assertFalse(form.is_valid())
+        self.assertIn("notes", form.errors)
+
+    def test_episode_shared_fields_form_rejects_notes_longer_than_5000_characters(self):
+        """Episode shared notes should be capped at 5000 characters."""
+        form = EpisodeSharedFieldsForm(
+            data={
+                "notes": "a" * 5001,
+            },
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("notes", form.errors)
+
 
 class BasicGameForm(TestCase):
     """Test the game form."""
