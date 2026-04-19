@@ -648,6 +648,39 @@ class TraktImporter:
                 attribute_updates or {},
                 entry["season"]["number"],
             )
+        elif entry["type"] == "episode":
+            logger.info(
+                "Processing episode %s S%sE%s for %s",
+                entry["show"]["title"],
+                entry["episode"]["season"],
+                entry["episode"]["number"],
+                entry_type,
+            )
+            self._process_episode_generic_entry(
+                entry,
+                attribute_updates or {},
+            )
+
+    def _process_episode_generic_entry(self, entry, defaults):
+        """Update an already-imported episode with rating/comment data."""
+        tmdb_id = self._get_tmdb_id(entry["show"])
+        if not tmdb_id:
+            return
+
+        season_number = entry["episode"]["season"]
+        episode_number = entry["episode"]["number"]
+        key = f"{tmdb_id}:{season_number}:{episode_number}"
+
+        if key not in self.media_instances[MediaTypes.EPISODE.value]:
+            logger.info(
+                "Skipping ep %s S%sE%s for generic import; no watched entry exists",
+                entry["show"]["title"],
+                season_number,
+                episode_number,
+            )
+            return
+
+        self._update_instance(MediaTypes.EPISODE.value, key, defaults)
 
     def _process_media_item(
         self,

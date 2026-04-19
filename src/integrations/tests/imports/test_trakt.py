@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from app.models import (
+    Episode,
     MediaTypes,
     Movie,
     Status,
@@ -27,6 +28,55 @@ class ImportTrakt(TestCase):
         """Create user for the tests."""
         credentials = {"username": "test", "password": "12345"}
         self.user = get_user_model().objects.create_user(**credentials)
+
+    def _episode_metadata_side_effect(self, media_type, _, __, ___=None):
+        """Return TV and season metadata for episode import tests."""
+        if media_type == MediaTypes.TV.value:
+            return {
+                "title": "Test Show",
+                "image": "tv_image.jpg",
+                "last_episode_season": 1,
+                "max_progress": 1,
+            }
+        if media_type == MediaTypes.SEASON.value:
+            return {
+                "title": "Season 1",
+                "image": "season_image.jpg",
+                "episodes": [{"episode_number": 1, "still_path": "/still.jpg"}],
+                "max_progress": 1,
+            }
+        return None
+
+    def _episode_history_entry(self, date="2023-01-01"):
+        """Return a watched episode entry."""
+        return {
+            "type": "episode",
+            "episode": {"season": 1, "number": 1, "title": "Pilot"},
+            "show": {"title": "Test Show", "ids": {"tmdb": 12345}},
+            "watched_at": f"{date}T00:00:00.000Z",
+        }
+
+    def _episode_rating_entry(self):
+        """Return an episode rating entry."""
+        return {
+            "rated_at": "2023-01-02T00:00:00.000Z",
+            "type": "episode",
+            "episode": {"season": 1, "number": 1, "title": "Pilot"},
+            "show": {"title": "Test Show", "ids": {"tmdb": 12345}},
+            "rating": 8,
+        }
+
+    def _episode_comment_entry(self):
+        """Return an episode comment entry."""
+        return {
+            "type": "episode",
+            "episode": {"season": 1, "number": 1, "title": "Pilot"},
+            "show": {"title": "Test Show", "ids": {"tmdb": 12345}},
+            "comment": {
+                "comment": "Great pilot!",
+                "updated_at": "2023-01-03T00:00:00.000Z",
+            },
+        }
 
     @patch("integrations.imports.trakt.TraktImporter._get_metadata")
     def test_process_watched_movie(self, mock_get_metadata):
@@ -55,31 +105,8 @@ class ImportTrakt(TestCase):
     @patch("integrations.imports.trakt.TraktImporter._get_metadata")
     def test_process_watched_episode(self, mock_get_metadata):
         """Test processing an episode entry."""
-        episode_entry = {
-            "type": "episode",
-            "episode": {"season": 1, "number": 1, "title": "Pilot"},
-            "show": {"title": "Test Show", "ids": {"tmdb": 12345}},
-            "watched_at": "2023-01-01T00:00:00.000Z",
-        }
-
-        def mock_metadata_side_effect(media_type, _, __, ___=None):
-            if media_type == MediaTypes.TV.value:
-                return {
-                    "title": "Test Show",
-                    "image": "tv_image.jpg",
-                    "last_episode_season": 1,
-                    "max_progress": 1,
-                }
-            if media_type == MediaTypes.SEASON.value:
-                return {
-                    "title": "Season 1",
-                    "image": "season_image.jpg",
-                    "episodes": [{"episode_number": 1, "still_path": "/still.jpg"}],
-                    "max_progress": 1,
-                }
-            return None
-
-        mock_get_metadata.side_effect = mock_metadata_side_effect
+        episode_entry = self._episode_history_entry()
+        mock_get_metadata.side_effect = self._episode_metadata_side_effect
 
         trakt_importer = TraktImporter("testuser", self.user, "new")
         trakt_importer.process_watched_episode(episode_entry)
@@ -141,6 +168,43 @@ class ImportTrakt(TestCase):
 
     @patch("integrations.imports.trakt.TraktImporter._make_api_request")
     @patch("integrations.imports.trakt.TraktImporter._get_metadata")
+    def test_process_episode_rating_updates_existing_watched_episode(
+        self,
+        mock_get_metadata,
+        mock_make_request,
+    ):
+        """Test processing an episode rating after watched history import."""
+        mock_get_metadata.side_effect = self._episode_metadata_side_effect
+        mock_make_request.return_value = [self._episode_rating_entry()]
+
+        trakt_importer = TraktImporter("testuser", self.user, "new")
+        trakt_importer.process_watched_episode(
+            self._episode_history_entry("2023-01-01"),
+        )
+        trakt_importer.process_watched_episode(
+            self._episode_history_entry("2025-01-01"),
+        )
+
+        self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.EPISODE.value]), 2)
+
+        trakt_importer.process_ratings()
+
+        self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.TV.value]), 1)
+        self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.SEASON.value]), 1)
+        self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.EPISODE.value]), 2)
+
+        episode_obj = trakt_importer.bulk_media[MediaTypes.EPISODE.value][0]
+        self.assertIsInstance(episode_obj, Episode)
+        self.assertEqual(episode_obj.end_date, "2023-01-01T00:00:00.000Z")
+        self.assertEqual(episode_obj.score, 8)
+
+        episode_obj2 = trakt_importer.bulk_media[MediaTypes.EPISODE.value][1]
+        self.assertIsInstance(episode_obj2, Episode)
+        self.assertEqual(episode_obj2.end_date, "2025-01-01T00:00:00.000Z")
+        self.assertEqual(episode_obj2.score, 8)
+
+    @patch("integrations.imports.trakt.TraktImporter._make_api_request")
+    @patch("integrations.imports.trakt.TraktImporter._get_metadata")
     def test_process_comments(self, mock_get_metadata, mock_make_request):
         """Test processing paginated comments from Trakt."""
         # First page with one comment
@@ -175,6 +239,73 @@ class ImportTrakt(TestCase):
         self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.MOVIE.value]), 1)
         movie_obj = trakt_importer.bulk_media[MediaTypes.MOVIE.value][0]
         self.assertEqual(movie_obj.notes, "Great movie!")
+
+    @patch("integrations.imports.trakt.TraktImporter._make_api_request")
+    @patch("integrations.imports.trakt.TraktImporter._get_metadata")
+    def test_process_episode_comment_updates_existing_watched_episode(
+        self,
+        mock_get_metadata,
+        mock_make_request,
+    ):
+        """Test processing an episode comment after watched history import."""
+        mock_get_metadata.side_effect = self._episode_metadata_side_effect
+        mock_make_request.side_effect = [[self._episode_comment_entry()], []]
+
+        trakt_importer = TraktImporter("testuser", self.user, "new")
+        trakt_importer.process_watched_episode(
+            self._episode_history_entry("2023-01-01"),
+        )
+        trakt_importer.process_watched_episode(
+            self._episode_history_entry("2025-01-01"),
+        )
+
+        self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.EPISODE.value]), 2)
+
+        trakt_importer.process_comments()
+
+        self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.TV.value]), 1)
+        self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.SEASON.value]), 1)
+        self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.EPISODE.value]), 2)
+
+        episode_obj = trakt_importer.bulk_media[MediaTypes.EPISODE.value][0]
+        self.assertIsInstance(episode_obj, Episode)
+        self.assertEqual(episode_obj.end_date, "2023-01-01T00:00:00.000Z")
+        self.assertEqual(episode_obj.notes, "Great pilot!")
+
+        episode_obj2 = trakt_importer.bulk_media[MediaTypes.EPISODE.value][1]
+        self.assertIsInstance(episode_obj2, Episode)
+        self.assertEqual(episode_obj2.end_date, "2025-01-01T00:00:00.000Z")
+        self.assertEqual(episode_obj2.notes, "Great pilot!")
+
+    @patch("integrations.imports.trakt.TraktImporter._make_api_request")
+    def test_process_episode_rating_skips_without_watched_history(
+        self,
+        mock_make_request,
+    ):
+        """Test skipping an episode rating without matching watched history."""
+        mock_make_request.return_value = [self._episode_rating_entry()]
+
+        trakt_importer = TraktImporter("testuser", self.user, "new")
+        trakt_importer.process_ratings()
+
+        self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.TV.value]), 0)
+        self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.SEASON.value]), 0)
+        self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.EPISODE.value]), 0)
+
+    @patch("integrations.imports.trakt.TraktImporter._make_api_request")
+    def test_process_episode_comment_skips_without_watched_history(
+        self,
+        mock_make_request,
+    ):
+        """Test skipping an episode comment without matching watched history."""
+        mock_make_request.side_effect = [[self._episode_comment_entry()], []]
+
+        trakt_importer = TraktImporter("testuser", self.user, "new")
+        trakt_importer.process_comments()
+
+        self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.TV.value]), 0)
+        self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.SEASON.value]), 0)
+        self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.EPISODE.value]), 0)
 
     @patch("integrations.imports.trakt.TraktImporter._get_paginated_data")
     @patch("integrations.imports.trakt.TraktImporter._make_api_request")
@@ -269,5 +400,3 @@ class ImportTrakt(TestCase):
         self.assertEqual(importer.username, "testuser")
         self.assertIsNone(importer.refresh_token)
         self.assertEqual(importer.mode, "new")
-
-
