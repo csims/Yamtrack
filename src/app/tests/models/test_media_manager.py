@@ -722,6 +722,53 @@ class MediaManagerTests(TestCase):
 
         self.assertEqual(tv_list[0].max_progress, 1)
 
+    def test_annotate_max_progress_for_tv_keeps_not_interested_seasons_in_total(self):
+        """TV max_progress should still count not interested seasons in totals."""
+        manager = MediaManager()
+        season2_item = Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Friends",
+            image="http://example.com/image.jpg",
+            season_number=2,
+        )
+        season2 = Season.objects.create(
+            item=season2_item,
+            related_tv=self.tv,
+            user=self.user,
+            status=Status.NOT_INTERESTED.value,
+        )
+        for episode_number in range(1, 4):
+            episode_item = Item.objects.create(
+                media_id="1668",
+                source=Sources.TMDB.value,
+                media_type=MediaTypes.EPISODE.value,
+                title=f"Friends S2E{episode_number}",
+                image="http://example.com/image.jpg",
+                season_number=2,
+                episode_number=episode_number,
+            )
+            Episode.objects.create(
+                item=episode_item,
+                related_season=season2,
+                end_date=datetime(2023, 7, episode_number, 0, 0, tzinfo=UTC),
+            )
+
+        tv_list = list(
+            TV.objects.filter(user=self.user.id).prefetch_related(
+                Prefetch(
+                    "seasons__item__event_set",
+                    queryset=Event.objects.all(),
+                    to_attr="prefetched_events",
+                ),
+            ),
+        )
+
+        manager.annotate_max_progress(tv_list, MediaTypes.TV.value)
+
+        self.assertEqual(tv_list[0].max_progress, 7)
+
     def test_annotate_max_progress_for_season_ignores_unknown_air_dates(self):
         """Season max_progress should ignore unknown-air-date placeholder events."""
         manager = MediaManager()

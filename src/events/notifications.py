@@ -7,9 +7,9 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.utils import formats, timezone
 
-from app.models import TV, MediaTypes, Season
+from app.models import TV, MediaTypes, Season, Status
 from app.templatetags import app_tags
-from events.models import INACTIVE_TRACKING_STATUSES, Event
+from events.models import INACTIVE_TRACKING_STATUSES, TV_SEASON_CUTOFF_STATUSES, Event
 
 logger = logging.getLogger(__name__)
 
@@ -340,18 +340,25 @@ def check_user_season_tracking(user_id, season_item, tv_lookup, season_lookup):
     if not tv_show or tv_show.status in INACTIVE_TRACKING_STATUSES:
         return None
 
-    # Check for dropped seasons
+    # Check for dropped/paused seasons that stop later season notifications.
     user_seasons = season_lookup.get(season_key, [])
     dropped_seasons = [
         s
         for s in user_seasons
-        if s.status in INACTIVE_TRACKING_STATUSES
+        if s.status in TV_SEASON_CUTOFF_STATUSES
         and s.item.season_number <= season_item.season_number
     ]
 
     if dropped_seasons:
         first_dropped = min(dropped_seasons, key=lambda s: s.item.season_number)
         return season_item.season_number < first_dropped.item.season_number
+
+    for season in user_seasons:
+        if (
+            season.item.season_number == season_item.season_number
+            and season.status == Status.NOT_INTERESTED.value
+        ):
+            return False
 
     return True
 

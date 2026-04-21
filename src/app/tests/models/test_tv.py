@@ -161,9 +161,9 @@ class TVModel(TestCase):
             datetime(2023, 6, 5, 0, 0, tzinfo=UTC),
         )
 
-    def test_tv_progress_excludes_ignored_seasons(self):
-        """Test that ignored seasons do not affect TV progress or dates."""
-        item_ignored = Item.objects.create(
+    def test_tv_progress_excludes_not_interested_seasons(self):
+        """Test that not interested seasons do not affect TV progress or dates."""
+        item_not_interested = Item.objects.create(
             media_id="1668",
             source=Sources.TMDB.value,
             media_type=MediaTypes.SEASON.value,
@@ -171,14 +171,13 @@ class TVModel(TestCase):
             image="http://example.com/image.jpg",
             season_number=4,
         )
-        season_ignored = Season.objects.create(
-            item=item_ignored,
+        season_not_interested = Season.objects.create(
+            item=item_not_interested,
             related_tv=self.tv,
             user=self.user,
-            status=Status.IN_PROGRESS.value,
-            is_ignored=True,
+            status=Status.NOT_INTERESTED.value,
         )
-        item_ep_ignored = Item.objects.create(
+        item_ep_not_interested = Item.objects.create(
             media_id="1668",
             source=Sources.TMDB.value,
             media_type=MediaTypes.EPISODE.value,
@@ -188,8 +187,8 @@ class TVModel(TestCase):
             episode_number=1,
         )
         Episode.objects.create(
-            item=item_ep_ignored,
-            related_season=season_ignored,
+            item=item_ep_not_interested,
+            related_season=season_not_interested,
             end_date=datetime(2023, 6, 12, 0, 0, tzinfo=UTC),
         )
 

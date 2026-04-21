@@ -181,6 +181,10 @@ STATUS_CONFIG = {
         "text_color": COLORS["red"]["text"],
         "stats_color": COLORS["red"]["hex"],
     },
+    Status.NOT_INTERESTED.value: {
+        "text_color": COLORS["yellow"]["text"],
+        "stats_color": COLORS["yellow"]["hex"],
+    },
 }
 
 

@@ -670,6 +670,55 @@ class NotificationTests(TestCase):
         result = is_user_tracking_item(self.user1, self.season1_item, tracking_data)
         self.assertTrue(result)
 
+    def test_not_interested_items_are_excluded_without_cutting_off_later_seasons(self):
+        """Not interested items should be excluded without acting like dropped."""
+        Anime.objects.filter(
+            user=self.user1,
+            item=self.anime_item,
+        ).update(status=Status.NOT_INTERESTED.value)
+        user1_tv = TV.objects.get(user=self.user1, item=self.tv_show_item)
+        season1, _ = Season.objects.get_or_create(
+            item=self.season1_item,
+            related_tv=user1_tv,
+            user=self.user1,
+            defaults={"status": Status.NOT_INTERESTED.value},
+        )
+        season1.status = Status.NOT_INTERESTED.value
+        season1.save(update_fields=["status"])
+
+        users_with_notifications = (
+            get_user_model()
+            .objects.filter(
+                ~models.Q(notification_urls=""),
+            )
+            .prefetch_related("notification_excluded_items")
+        )
+        target_events = {
+            (
+                self.anime_event.item.id,
+                self.anime_event.content_number,
+            ): self.anime_event,
+            (
+                self.season1_event.item.id,
+                self.season1_event.content_number,
+            ): self.season1_event,
+            (
+                self.season2_event.item.id,
+                self.season2_event.content_number,
+            ): self.season2_event,
+        }
+
+        user_releases = get_user_releases(users_with_notifications, target_events)
+        user1_events = user_releases[self.user1.id]
+
+        self.assertFalse(any(event.id == self.anime_event.id for event in user1_events))
+        self.assertFalse(
+            any(event.id == self.season1_event.id for event in user1_events),
+        )
+        self.assertTrue(
+            any(event.id == self.season2_event.id for event in user1_events),
+        )
+
     @patch("apprise.Apprise")
     def test_send_notifications(self, mock_apprise):
         """Test the send_notifications function."""

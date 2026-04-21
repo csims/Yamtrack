@@ -49,6 +49,7 @@ class MediaStatusChoices(models.TextChoices):
     PLANNING = Status.PLANNING.value, Status.PLANNING.label
     PAUSED = Status.PAUSED.value, Status.PAUSED.label
     DROPPED = Status.DROPPED.value, Status.DROPPED.label
+    NOT_INTERESTED = Status.NOT_INTERESTED.value, Status.NOT_INTERESTED.label
 
 
 class LayoutChoices(models.TextChoices):
@@ -433,6 +434,10 @@ class User(AbstractUser):
             models.CheckConstraint(
                 name="book_status_valid",
                 condition=models.Q(book_status__in=MediaStatusChoices.values),
+            ),
+            models.CheckConstraint(
+                name="comic_status_valid",
+                condition=models.Q(comic_status__in=MediaStatusChoices.values),
             ),
             models.CheckConstraint(
                 name="quick_watch_date_valid",

@@ -316,10 +316,10 @@ class EventManagerTests(TestCase):
             limited_events,
         )  # Past event, but filtered by active status
 
-    def test_get_user_events_ignores_ignored_season(self):
-        """Ensure ignored seasons are excluded for the user."""
-        self.other_season.is_ignored = True
-        self.other_season.save(update_fields=["is_ignored"])
+    def test_get_user_events_ignores_not_interested_season(self):
+        """Ensure not interested seasons are excluded for the user."""
+        self.other_season.status = Status.NOT_INTERESTED.value
+        self.other_season.save(update_fields=["status"])
 
         # Use fixed dates for testing
         today = self.base_date.date()  # April 15
@@ -330,11 +330,7 @@ class EventManagerTests(TestCase):
 
         self.assertIn(self.season_event, events)
 
-        # Get events for other user who has season ignored
+        # Get events for other user who marked the season as not interested
         other_events = Event.objects.get_user_events(self.other_user, today, next_week)
 
         self.assertNotIn(self.season_event, other_events)
-
-        # Reset mock data after test
-        self.other_season.is_ignored = False
-        self.other_season.save(update_fields=["is_ignored"])

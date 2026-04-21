@@ -22,6 +22,12 @@ from app.models import TV, Item, MediaTypes, Season, Status
 INACTIVE_TRACKING_STATUSES = [
     Status.PAUSED.value,
     Status.DROPPED.value,
+    Status.NOT_INTERESTED.value,
+]
+
+TV_SEASON_CUTOFF_STATUSES = [
+    Status.PAUSED.value,
+    Status.DROPPED.value,
 ]
 
 
@@ -75,13 +81,13 @@ class EventManager(models.Manager):
             datetime__lte=end_datetime,
         ).select_related("item")
 
-        ignored_season_items = Season.objects.filter(
+        not_interested_season_items = Season.objects.filter(
             user=user,
-            is_ignored=True,
+            status=Status.NOT_INTERESTED.value,
         ).values("item_id")
         queryset = queryset.exclude(
             item__media_type=MediaTypes.SEASON.value,
-            item_id__in=ignored_season_items,
+            item_id__in=not_interested_season_items,
         )
 
         return self.sort_with_sentinel_last(queryset)
@@ -109,15 +115,14 @@ class EventManager(models.Manager):
         if not active_tv_shows:
             return Q()
 
-        # Subquery to find the first season with inactive status for each TV show
+        # Subquery to find the first season that stops TV season tracking.
         first_dropped_seasons = (
             Season.objects.filter(
                 user=user,
                 item__media_id=OuterRef("media_id"),
-                status__in=INACTIVE_TRACKING_STATUSES,
+                status__in=TV_SEASON_CUTOFF_STATUSES,
                 item__season_number__gt=0,
                 item__is_specials_override=False,
-                is_ignored=False,
             )
             .values("item__media_id")
             .annotate(min_season=Min("item__season_number"))

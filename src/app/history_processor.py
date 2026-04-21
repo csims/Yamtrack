@@ -265,6 +265,22 @@ def format_description(field_name, old_value, new_value, media_type=None):  # no
                 Status.IN_PROGRESS.value,
                 Status.DROPPED.value,
             ): f"Stopped {verb}ing",
+            (
+                Status.PLANNING.value,
+                Status.NOT_INTERESTED.value,
+            ): "Marked as not interested",
+            (
+                Status.IN_PROGRESS.value,
+                Status.NOT_INTERESTED.value,
+            ): "Marked as not interested",
+            (
+                Status.PAUSED.value,
+                Status.NOT_INTERESTED.value,
+            ): "Marked as not interested",
+            (
+                Status.DROPPED.value,
+                Status.NOT_INTERESTED.value,
+            ): "Marked as not interested",
         }
         return transitions.get(
             (old_value, new_value),

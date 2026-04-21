@@ -72,4 +72,14 @@ class MediaModel(TestCase):
             26,
         )
 
+    def test_not_interested_progress_does_not_auto_complete(self):
+        """Progress updates should not auto-complete not interested media."""
+        self.anime.status = Status.NOT_INTERESTED.value
+        self.anime.progress = 26
+        self.anime.save()
+
+        anime = Anime.objects.get(item__media_id="1", user=self.user)
+        self.assertEqual(anime.status, Status.NOT_INTERESTED.value)
+        self.assertEqual(anime.progress, 26)
+        self.assertIsNone(anime.end_date)
 

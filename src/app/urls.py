@@ -64,11 +64,6 @@ urlpatterns = [
         name="update_episode_shared_fields",
     ),
     path(
-        "season/ignore/<source:source>/<str:media_id>/<int:season_number>",
-        views.toggle_season_ignore,
-        name="toggle_season_ignore",
-    ),
-    path(
         "history_modal/<source:source>/<media_type:media_type>/<str:media_id>",
         views.history_modal,
         name="history_modal",

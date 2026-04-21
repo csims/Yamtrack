@@ -150,9 +150,4 @@
     </div>
   {% endif %}
 
-  {% if media.media_type == MediaTypes.SEASON.value %}
-    <div class="mt-4 mb-6">
-      {% include "app/components/season_ignore_toggle.html" with media=media current_instance=current_instance %}
-    </div>
-  {% endif %}
 </div>

@@ -333,10 +333,14 @@ class MediaManager(models.Manager):
             queryset = queryset.annotate(
                 calculated_start_date=models.Min(
                     "seasons__episodes__end_date",
-                    filter=models.Q(
-                        seasons__item__season_number__gt=0,
-                        seasons__item__is_specials_override=False,
-                        seasons__is_ignored=False,
+                    filter=(
+                        models.Q(
+                            seasons__item__season_number__gt=0,
+                            seasons__item__is_specials_override=False,
+                        )
+                        & ~models.Q(
+                            seasons__status=Status.NOT_INTERESTED.value,
+                        )
                     ),
                 ),
             )
@@ -350,10 +354,14 @@ class MediaManager(models.Manager):
             queryset = queryset.annotate(
                 calculated_end_date=models.Max(
                     "seasons__episodes__end_date",
-                    filter=models.Q(
-                        seasons__item__season_number__gt=0,
-                        seasons__item__is_specials_override=False,
-                        seasons__is_ignored=False,
+                    filter=(
+                        models.Q(
+                            seasons__item__season_number__gt=0,
+                            seasons__item__is_specials_override=False,
+                        )
+                        & ~models.Q(
+                            seasons__status=Status.NOT_INTERESTED.value,
+                        )
                     ),
                 ),
             )
@@ -369,10 +377,14 @@ class MediaManager(models.Manager):
                 # Count episodes in non-specials seasons
                 calculated_progress=models.Count(
                     "seasons__episodes",
-                    filter=models.Q(
-                        seasons__item__season_number__gt=0,
-                        seasons__item__is_specials_override=False,
-                        seasons__is_ignored=False,
+                    filter=(
+                        models.Q(
+                            seasons__item__season_number__gt=0,
+                            seasons__item__is_specials_override=False,
+                        )
+                        & ~models.Q(
+                            seasons__status=Status.NOT_INTERESTED.value,
+                        )
                     ),
                 ),
             )
@@ -521,6 +533,7 @@ class MediaManager(models.Manager):
                     Status.PLANNING.value,
                     Status.PAUSED.value,
                     Status.DROPPED.value,
+                    Status.NOT_INTERESTED.value,
                 ],
             ),
         )
@@ -814,11 +827,9 @@ class MediaManager(models.Manager):
             seasons_by_number = {
                 season.item.season_number: season for season in seasons
             }
-            tracked_season_numbers, ignored_season_numbers = (
-                self._get_tv_tracked_and_ignored_season_numbers(
-                    seasons,
-                )
-            )
+            tracked_season_numbers = {
+                season.item.season_number for season in seasons
+            }
             specials_override_numbers = specials_override_map.get(
                 (tv.item.media_id, tv.item.source),
                 set(),
@@ -831,7 +842,6 @@ class MediaManager(models.Manager):
             for season_number in season_numbers:
                 if (
                     season_number == 0
-                    or season_number in ignored_season_numbers
                     or season_number in specials_override_numbers
                 ):
                     continue
@@ -862,7 +872,7 @@ class MediaManager(models.Manager):
                         if (
                             season.item.season_number != 0
                             and not season.item.is_specials_override
-                            and not season.is_ignored
+                            and not season.is_not_interested
                         )
                         for event in getattr(season.item, "prefetched_events", [])
                         if (
@@ -956,14 +966,14 @@ class MediaManager(models.Manager):
                 hidden_episode_map,
                 aired_episode_map,
             )
-            tracked_season_numbers, ignored_season_numbers = (
-                self._get_tv_tracked_and_ignored_season_numbers(seasons)
+            tracked_season_numbers, not_interested_season_numbers = (
+                self._get_tv_tracked_and_not_interested_season_numbers(seasons)
             )
             untracked_states = self._get_untracked_tv_home_season_states(
                 tv,
                 aired_episode_map,
                 tracked_season_numbers,
-                ignored_season_numbers,
+                not_interested_season_numbers,
             )
             season_states = tracked_states + untracked_states
             self._reset_tv_home_annotations(tv, is_engaged)
@@ -979,11 +989,15 @@ class MediaManager(models.Manager):
                 current_time,
             )
 
-    def _get_tv_tracked_and_ignored_season_numbers(self, seasons):
-        """Return tracked and ignored season-number sets for a TV entry."""
+    def _get_tv_tracked_and_not_interested_season_numbers(self, seasons):
+        """Return tracked and not-interested season-number sets for a TV entry."""
         tracked = {season.item.season_number for season in seasons}
-        ignored = {season.item.season_number for season in seasons if season.is_ignored}
-        return tracked, ignored
+        not_interested = {
+            season.item.season_number
+            for season in seasons
+            if season.is_not_interested
+        }
+        return tracked, not_interested
 
     def _get_tracked_tv_home_season_states(
         self,
@@ -1037,7 +1051,7 @@ class MediaManager(models.Manager):
         return (
             season.item.season_number == 0
             or season.item.is_specials_override
-            or season.is_ignored
+            or season.is_not_interested
         )
 
     def _get_aired_numbers_for_season(
@@ -1081,12 +1095,12 @@ class MediaManager(models.Manager):
         tv,
         aired_episode_map,
         tracked_season_numbers,
-        ignored_season_numbers,
+        not_interested_season_numbers,
     ):
         """Build candidate home-episode states from untracked seasons."""
         season_states = []
         for season_number, season_data in aired_episode_map.get(tv.id, {}).items():
-            if season_number in ignored_season_numbers:
+            if season_number in not_interested_season_numbers:
                 continue
             if season_number in tracked_season_numbers:
                 continue
@@ -1313,21 +1327,21 @@ class MediaManager(models.Manager):
 
         for tv in tv_list:
             seasons = list(tv.seasons.all())
-            tracked_season_numbers, ignored_season_numbers = (
-                self._get_tv_tracked_and_ignored_season_numbers(seasons)
+            tracked_season_numbers, not_interested_season_numbers = (
+                self._get_tv_tracked_and_not_interested_season_numbers(seasons)
             )
             aired_episodes = self._get_tv_aired_episode_keys(
                 tv.id,
                 aired_episode_map,
                 tracked_season_numbers,
-                ignored_season_numbers,
+                not_interested_season_numbers,
             )
             tv.released_max_progress = len(aired_episodes)
             if include_home_progress:
                 home_aired_episodes = self._get_tv_home_aired_episode_keys(
                     tv.id,
                     aired_episode_map,
-                    ignored_season_numbers,
+                    not_interested_season_numbers,
                 )
                 watched_episodes = self._get_visible_tv_watched_episode_keys(seasons)
                 tv._home_progress = len(watched_episodes)
@@ -1339,14 +1353,14 @@ class MediaManager(models.Manager):
         tv_id,
         aired_episode_map,
         tracked_season_numbers,
-        ignored_season_numbers,
+        not_interested_season_numbers,
     ):
-        """Return aired episode keys for tracked, non-ignored seasons."""
+        """Return aired episode keys for tracked, interested seasons."""
         aired_episodes = set()
         for season_number, season_data in aired_episode_map.get(tv_id, {}).items():
             if (
                 season_number not in tracked_season_numbers
-                or season_number in ignored_season_numbers
+                or season_number in not_interested_season_numbers
             ):
                 continue
             aired_episodes.update(
@@ -1362,7 +1376,7 @@ class MediaManager(models.Manager):
             if (
                 season.item.season_number == 0
                 or season.item.is_specials_override
-                or season.is_ignored
+                or season.is_not_interested
             ):
                 continue
 
@@ -1379,12 +1393,12 @@ class MediaManager(models.Manager):
         self,
         tv_id,
         aired_episode_map,
-        ignored_season_numbers,
+        not_interested_season_numbers,
     ):
         """Return aired episode keys for visible seasons on the home page."""
         aired_episodes = set()
         for season_number, season_data in aired_episode_map.get(tv_id, {}).items():
-            if season_number in ignored_season_numbers:
+            if season_number in not_interested_season_numbers:
                 continue
             aired_episodes.update(
                 (season_number, episode_number)
@@ -1568,6 +1582,7 @@ class Status(models.TextChoices):
     PLANNING = "Planning", "Planning"
     PAUSED = "Paused", "Paused"
     DROPPED = "Dropped", "Dropped"
+    NOT_INTERESTED = "Not Interested", "Not Interested"
 
 
 class Media(models.Model):
@@ -1644,7 +1659,10 @@ class Media(models.Model):
             if max_progress:
                 self.progress = min(self.progress, max_progress)
 
-                if self.progress == max_progress:
+                if (
+                    self.progress == max_progress
+                    and self.status != Status.NOT_INTERESTED.value
+                ):
                     self.status = Status.COMPLETED.value
 
                     now = timezone.now().replace(second=0, microsecond=0)
@@ -1748,7 +1766,7 @@ class TV(Media):
             if (
                 season.item.season_number != 0
                 and not season.item.is_specials_override
-                and not season.is_ignored
+                and not season.is_not_interested
             )
         )
 
@@ -1766,7 +1784,7 @@ class TV(Media):
                 hasattr(season, "episodes")
                 and season.item.season_number != 0
                 and not season.item.is_specials_override
-                and not season.is_ignored
+                and not season.is_not_interested
             )
             for episode in season.episodes.all()
             if episode.end_date is not None
@@ -1792,7 +1810,7 @@ class TV(Media):
                 season.progressed_at
                 and season.item.season_number != 0
                 and not season.item.is_specials_override
-                and not season.is_ignored
+                and not season.is_not_interested
             )
         ]
         return max(dates) if dates else None
@@ -1807,7 +1825,7 @@ class TV(Media):
                 season.start_date
                 and season.item.season_number != 0
                 and not season.item.is_specials_override
-                and not season.is_ignored
+                and not season.is_not_interested
             )
         ]
         return min(dates) if dates else None
@@ -1822,7 +1840,7 @@ class TV(Media):
                 season.end_date
                 and season.item.season_number != 0
                 and not season.item.is_specials_override
-                and not season.is_ignored
+                and not season.is_not_interested
             )
         ]
         return max(dates) if dates else None
@@ -1851,8 +1869,8 @@ class TV(Media):
                 is_specials_override=True,
             ).values_list("season_number", flat=True),
         )
-        ignored_numbers = set(
-            self.seasons.filter(is_ignored=True).values_list(
+        not_interested_numbers = set(
+            self.seasons.filter(status=Status.NOT_INTERESTED.value).values_list(
                 "item__season_number",
                 flat=True,
             ),
@@ -1862,7 +1880,7 @@ class TV(Media):
             for season in tv_metadata["related"]["seasons"]
             if season["season_number"] != 0
             and season["season_number"] not in specials_override_numbers
-            and season["season_number"] not in ignored_numbers
+            and season["season_number"] not in not_interested_numbers
         ]
         tv_with_seasons_metadata = providers.services.get_media_metadata(
             "tv_with_seasons",
@@ -1938,7 +1956,8 @@ class TV(Media):
         all_seasons = self.seasons.filter(
             item__season_number__gt=0,
             item__is_specials_override=False,
-            is_ignored=False,
+        ).exclude(
+            status=Status.NOT_INTERESTED.value,
         ).order_by("item__season_number")
 
         next_unwatched_season = all_seasons.exclude(
@@ -1960,8 +1979,8 @@ class TV(Media):
                     is_specials_override=True,
                 ).values_list("season_number", flat=True),
             )
-            ignored_numbers = set(
-                self.seasons.filter(is_ignored=True).values_list(
+            not_interested_numbers = set(
+                self.seasons.filter(status=Status.NOT_INTERESTED.value).values_list(
                     "item__season_number",
                     flat=True,
                 ),
@@ -1977,7 +1996,7 @@ class TV(Media):
                     season_number > 0
                     and season_number not in existing_season_numbers
                     and season_number not in specials_override_numbers
-                    and season_number not in ignored_numbers
+                    and season_number not in not_interested_numbers
                 ):
                     item, _ = Item.objects.get_or_create(
                         media_id=self.item.media_id,
@@ -2016,7 +2035,6 @@ class Season(Media):
         on_delete=models.CASCADE,
         related_name="seasons",
     )
-    is_ignored = models.BooleanField(default=False)
 
     tracker = FieldTracker()
 
@@ -2074,7 +2092,11 @@ class Season(Media):
 
             elif (
                 self.status == Status.IN_PROGRESS.value
-                and self.related_tv.status != Status.IN_PROGRESS.value
+                and self.related_tv.status
+                not in [
+                    Status.IN_PROGRESS.value,
+                    Status.NOT_INTERESTED.value,
+                ]
             ):
                 self.related_tv.status = Status.IN_PROGRESS.value
                 bulk_update_with_history(
@@ -2084,6 +2106,11 @@ class Season(Media):
                 )
 
             self.item.fetch_releases(delay=True)
+
+    @property
+    def is_not_interested(self):
+        """Return whether the season is marked as not interested."""
+        return self.status == Status.NOT_INTERESTED.value
 
     @property
     def progress(self):
@@ -2447,7 +2474,10 @@ class Episode(models.Model):
         self.related_season.refresh_from_db()
 
         season_just_completed = False
-        if self.item.episode_number == max_progress:
+        if (
+            self.item.episode_number == max_progress
+            and self.related_season.status != Status.NOT_INTERESTED.value
+        ):
             self.related_season.status = Status.COMPLETED.value
             bulk_update_with_history(
                 [self.related_season],
@@ -2456,7 +2486,10 @@ class Episode(models.Model):
             )
             season_just_completed = True
 
-        elif self.related_season.status != Status.IN_PROGRESS.value:
+        elif self.related_season.status not in [
+            Status.IN_PROGRESS.value,
+            Status.NOT_INTERESTED.value,
+        ]:
             self.related_season.status = Status.IN_PROGRESS.value
             bulk_update_with_history(
                 [self.related_season],
@@ -2469,14 +2502,21 @@ class Episode(models.Model):
                 "season_number"
             ]
             # mark the TV show as completed if it's the last season
-            if season_number == last_season:
+            if (
+                season_number == last_season
+                and self.related_season.related_tv.status
+                != Status.NOT_INTERESTED.value
+            ):
                 self.related_season.related_tv.status = Status.COMPLETED.value
                 bulk_update_with_history(
                     [self.related_season.related_tv],
                     TV,
                     fields=["status"],
                 )
-        elif self.related_season.related_tv.status != Status.IN_PROGRESS.value:
+        elif self.related_season.related_tv.status not in [
+            Status.IN_PROGRESS.value,
+            Status.NOT_INTERESTED.value,
+        ]:
             self.related_season.related_tv.status = Status.IN_PROGRESS.value
             bulk_update_with_history(
                 [self.related_season.related_tv],

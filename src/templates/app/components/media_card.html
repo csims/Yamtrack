@@ -36,6 +36,10 @@
           <div class="w-4 h-4 {{ Status.DROPPED.value|status_color }} {% if media.start_date or media.end_date %}mr-1.5{% endif %}">
             {% include "app/icons/states/dropped.svg" %}
           </div>
+        {% elif media.status == Status.NOT_INTERESTED.value %}
+          <div class="w-4 h-4 {{ Status.NOT_INTERESTED.value|status_color }} {% if media.start_date or media.end_date %}mr-1.5{% endif %}">
+            {% include "app/icons/states/not-interested.svg" %}
+          </div>
         {% endif %}
 
         {% if media.end_date is not None %}

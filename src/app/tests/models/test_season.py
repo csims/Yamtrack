@@ -351,6 +351,17 @@ class SeasonStatusTests(TestCase):
         self.tv.refresh_from_db()
         self.assertEqual(self.tv.status, Status.IN_PROGRESS.value)
 
+    def test_not_interested_status_does_not_update_tv_status(self):
+        """Test setting status to NOT_INTERESTED does not update TV status."""
+        self.tv.status = Status.PLANNING.value
+        self.tv.save()
+
+        self.season.status = Status.NOT_INTERESTED.value
+        self.season.save()
+
+        self.tv.refresh_from_db()
+        self.assertEqual(self.tv.status, Status.PLANNING.value)
+
     def test_status_change_does_not_affect_tv_if_already_same_status(self):
         """Test status change doesn't update TV if already same status."""
         self.tv.status = Status.IN_PROGRESS.value
