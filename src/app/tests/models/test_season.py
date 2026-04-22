@@ -550,6 +550,53 @@ class SeasonGetRemainingEpsQuickWatchDateTests(TestCase):
         self.assertEqual(episodes[1].end_date, datetime(1994, 9, 29, tzinfo=UTC))
         self.assertEqual(episodes[2].end_date, datetime(1994, 9, 22, tzinfo=UTC))
 
+    def test_get_remaining_eps_returns_unwatched_non_hidden_gaps(self):
+        """Completion should create unwatched visible episodes before and after gaps."""
+        watched_item = Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            title="Episode 2",
+            image="img2.jpg",
+            season_number=1,
+            episode_number=2,
+        )
+        Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            title="Episode 3",
+            image="img3.jpg",
+            season_number=1,
+            episode_number=3,
+            is_hidden_override=True,
+        )
+        Episode.objects.bulk_create(
+            [
+                Episode(
+                    item=watched_item,
+                    related_season=self.season,
+                    end_date=timezone.now(),
+                ),
+            ],
+        )
+        metadata = {
+            "episodes": [
+                {"episode_number": 1, "image": "img1.jpg"},
+                {"episode_number": 2, "image": "img2.jpg"},
+                {"episode_number": 3, "image": "img3.jpg"},
+                {"episode_number": 4, "image": "img4.jpg"},
+            ],
+            "image": "season_img.jpg",
+        }
+
+        episodes = self.season.get_remaining_eps(metadata)
+
+        self.assertEqual(
+            [episode.item.episode_number for episode in episodes],
+            [4, 1],
+        )
+
     @patch("app.models.providers.services.get_media_metadata")
     def test_season_completion_with_no_date(self, mock_get_metadata):
         """Integration test: completing a season with NO_DATE preference."""

@@ -15,7 +15,6 @@ from django.db.models import (
     Count,
     F,
     IntegerField,
-    Max,
     Prefetch,
     Q,
     UniqueConstraint,
@@ -827,9 +826,7 @@ class MediaManager(models.Manager):
             seasons_by_number = {
                 season.item.season_number: season for season in seasons
             }
-            tracked_season_numbers = {
-                season.item.season_number for season in seasons
-            }
+            tracked_season_numbers = {season.item.season_number for season in seasons}
             specials_override_numbers = specials_override_map.get(
                 (tv.item.media_id, tv.item.source),
                 set(),
@@ -840,10 +837,7 @@ class MediaManager(models.Manager):
 
             total_known = 0
             for season_number in season_numbers:
-                if (
-                    season_number == 0
-                    or season_number in specials_override_numbers
-                ):
+                if season_number == 0 or season_number in specials_override_numbers:
                     continue
 
                 dated_numbers = (
@@ -993,9 +987,7 @@ class MediaManager(models.Manager):
         """Return tracked and not-interested season-number sets for a TV entry."""
         tracked = {season.item.season_number for season in seasons}
         not_interested = {
-            season.item.season_number
-            for season in seasons
-            if season.is_not_interested
+            season.item.season_number for season in seasons if season.is_not_interested
         }
         return tracked, not_interested
 
@@ -1953,12 +1945,16 @@ class TV(Media):
 
     def _start_next_available_season(self):
         """Find the next available season to watch and set it to in-progress."""
-        all_seasons = self.seasons.filter(
-            item__season_number__gt=0,
-            item__is_specials_override=False,
-        ).exclude(
-            status=Status.NOT_INTERESTED.value,
-        ).order_by("item__season_number")
+        all_seasons = (
+            self.seasons.filter(
+                item__season_number__gt=0,
+                item__is_specials_override=False,
+            )
+            .exclude(
+                status=Status.NOT_INTERESTED.value,
+            )
+            .order_by("item__season_number")
+        )
 
         next_unwatched_season = all_seasons.exclude(
             status__in=[Status.COMPLETED.value],
@@ -2330,26 +2326,29 @@ class Season(Media):
 
     def get_remaining_eps(self, season_metadata):
         """Return episodes needed to complete a season."""
-        latest_watched_ep_num = Episode.objects.filter(
-            related_season=self,
-        ).aggregate(latest_watched_ep_num=Max("item__episode_number"))[
-            "latest_watched_ep_num"
-        ]
-
-        if latest_watched_ep_num is None:
-            latest_watched_ep_num = 0
+        watched_episode_numbers = set(
+            Episode.objects.filter(
+                related_season=self,
+                item__is_hidden_override=False,
+            ).values_list("item__episode_number", flat=True),
+        )
+        visible_episode_numbers = set(self.get_visible_episode_numbers(season_metadata))
 
         episodes_to_create = []
 
         # Calculate current time once before the loop
         now = timezone.now().replace(second=0, microsecond=0)
 
-        # Create Episode objects for the remaining episodes
+        # Create Episode objects for unwatched, non-hidden episodes.
         for episode in reversed(season_metadata["episodes"]):
-            if episode["episode_number"] <= latest_watched_ep_num:
-                break
+            episode_number = episode["episode_number"]
+            if (
+                episode_number in watched_episode_numbers
+                or episode_number not in visible_episode_numbers
+            ):
+                continue
 
-            item = self.get_episode_item(episode["episode_number"], season_metadata)
+            item = self.get_episode_item(episode_number, season_metadata)
 
             # Resolve end_date based on user preference
             end_date = self.user.resolve_watch_date(now, episode.get("air_date"))
@@ -2362,6 +2361,39 @@ class Season(Media):
             episodes_to_create.append(episode_db)
 
         return episodes_to_create
+
+    def get_visible_episode_numbers(self, season_metadata):
+        """Return provider episode numbers excluding hidden episode items."""
+        hidden_episode_numbers = set(
+            Item.objects.filter(
+                media_id=self.item.media_id,
+                source=self.item.source,
+                media_type=MediaTypes.EPISODE.value,
+                season_number=self.item.season_number,
+                is_hidden_override=True,
+            ).values_list("episode_number", flat=True),
+        )
+
+        return [
+            episode["episode_number"]
+            for episode in season_metadata["episodes"]
+            if episode["episode_number"] not in hidden_episode_numbers
+        ]
+
+    def has_watched_all_visible_episodes(self, season_metadata):
+        """Return whether every non-hidden provider episode has been watched."""
+        visible_episode_numbers = set(self.get_visible_episode_numbers(season_metadata))
+        if not visible_episode_numbers:
+            return False
+
+        watched_episode_numbers = set(
+            self.episodes.filter(item__is_hidden_override=False).values_list(
+                "item__episode_number",
+                flat=True,
+            ),
+        )
+
+        return visible_episode_numbers.issubset(watched_episode_numbers)
 
     def get_episode_item(self, episode_number, season_metadata=None):
         """Get the episode item instance, create it if it doesn't exist."""
@@ -2468,15 +2500,14 @@ class Episode(models.Model):
             [season_number],
         )
         season_metadata = tv_with_seasons_metadata[f"season/{season_number}"]
-        max_progress = len(season_metadata["episodes"])
 
         # clear prefetch cache to get the updated episodes
         self.related_season.refresh_from_db()
 
         season_just_completed = False
         if (
-            self.item.episode_number == max_progress
-            and self.related_season.status != Status.NOT_INTERESTED.value
+            self.related_season.status != Status.COMPLETED.value
+            and self.related_season.has_watched_all_visible_episodes(season_metadata)
         ):
             self.related_season.status = Status.COMPLETED.value
             bulk_update_with_history(
@@ -2504,8 +2535,7 @@ class Episode(models.Model):
             # mark the TV show as completed if it's the last season
             if (
                 season_number == last_season
-                and self.related_season.related_tv.status
-                != Status.NOT_INTERESTED.value
+                and self.related_season.related_tv.status != Status.NOT_INTERESTED.value
             ):
                 self.related_season.related_tv.status = Status.COMPLETED.value
                 bulk_update_with_history(

@@ -163,6 +163,124 @@ class EpisodeStatusTests(TestCase):
         self.assertEqual(self.tv.status, Status.COMPLETED.value)
 
     @patch("app.models.providers.services.get_media_metadata")
+    def test_hidden_episode_does_not_block_season_completion(self, mock_get_metadata):
+        """Hidden provider episodes should not be required for completion."""
+        mock_get_metadata.return_value = {
+            "season/1": {
+                "episodes": [
+                    {"episode_number": 1},
+                    {"episode_number": 2},
+                    {"episode_number": 3},
+                ],
+            },
+            "related": {
+                "seasons": [{"season_number": 1}],
+            },
+        }
+        Item.objects.create(
+            media_id="123",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            title="Hidden Episode",
+            image="http://example.com/image.jpg",
+            season_number=1,
+            episode_number=3,
+            is_hidden_override=True,
+        )
+        episode_item_2 = Item.objects.create(
+            media_id="123",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            title="Test Episode 2",
+            image="http://example.com/image.jpg",
+            season_number=1,
+            episode_number=2,
+        )
+
+        Episode.objects.create(
+            item=self.episode_item,
+            related_season=self.season,
+            end_date=timezone.now(),
+        )
+        Episode.objects.create(
+            item=episode_item_2,
+            related_season=self.season,
+            end_date=timezone.now(),
+        )
+
+        self.season.refresh_from_db()
+        self.assertEqual(self.season.status, Status.COMPLETED.value)
+
+        self.tv.refresh_from_db()
+        self.assertEqual(self.tv.status, Status.COMPLETED.value)
+
+    @patch("app.models.providers.services.get_media_metadata")
+    def test_last_episode_alone_does_not_complete_season(self, mock_get_metadata):
+        """A season completes only when all visible episodes have been watched."""
+        mock_get_metadata.return_value = {
+            "season/1": {
+                "episodes": [
+                    {"episode_number": 1},
+                    {"episode_number": 2},
+                    {"episode_number": 3},
+                ],
+            },
+            "related": {
+                "seasons": [{"season_number": 1}],
+            },
+        }
+        episode_item_3 = Item.objects.create(
+            media_id="123",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            title="Test Episode 3",
+            image="http://example.com/image.jpg",
+            season_number=1,
+            episode_number=3,
+        )
+
+        Episode.objects.create(
+            item=episode_item_3,
+            related_season=self.season,
+            end_date=timezone.now(),
+        )
+
+        self.season.refresh_from_db()
+        self.assertEqual(self.season.status, Status.IN_PROGRESS.value)
+
+        self.tv.refresh_from_db()
+        self.assertEqual(self.tv.status, Status.IN_PROGRESS.value)
+
+    @patch("app.models.providers.services.get_media_metadata")
+    def test_not_interested_season_completes_when_visible_episodes_watched(
+        self,
+        mock_get_metadata,
+    ):
+        """Not interested seasons can complete when all visible episodes are watched."""
+        mock_get_metadata.return_value = {
+            "season/1": {
+                "episodes": [{"episode_number": 1}],
+            },
+            "related": {
+                "seasons": [{"season_number": 1}],
+            },
+        }
+        self.season.status = Status.NOT_INTERESTED.value
+        self.season.save()
+
+        Episode.objects.create(
+            item=self.episode_item,
+            related_season=self.season,
+            end_date=timezone.now(),
+        )
+
+        self.season.refresh_from_db()
+        self.assertEqual(self.season.status, Status.COMPLETED.value)
+
+        self.tv.refresh_from_db()
+        self.assertEqual(self.tv.status, Status.COMPLETED.value)
+
+    @patch("app.models.providers.services.get_media_metadata")
     def test_middle_episode_does_not_change_status(self, mock_get_metadata):
         """Test middle episode doesn't change season/TV status."""
         mock_metadata = {
