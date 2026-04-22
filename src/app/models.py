@@ -592,16 +592,7 @@ class MediaManager(models.Manager):
         if current_time is None:
             current_time = timezone.now()
 
-        hidden_numbers = set(
-            Item.objects.filter(
-                media_id=season.item.media_id,
-                source=season.item.source,
-                media_type=MediaTypes.EPISODE.value,
-                season_number=season.item.season_number,
-                is_hidden_override=True,
-            ).values_list("episode_number", flat=True),
-        )
-
+        hidden_numbers = season.get_hidden_episode_numbers()
         all_episode_numbers = set()
         has_unaired_non_hidden = False
         season_events = events.models.Event.objects.filter(
@@ -652,149 +643,80 @@ class MediaManager(models.Manager):
 
     def _get_tv_aired_episode_map(self, tv_list, current_time, hidden_episode_map):
         """Return aired episode numbers keyed by TV id and season number."""
-        if not tv_list:
-            return {}
-
-        tv_by_media_key = {(tv.item.media_id, tv.item.source): tv for tv in tv_list}
-        aired_episode_map = {}
-        aired_events = events.models.Event.objects.filter(
-            item__media_id__in=[tv.item.media_id for tv in tv_list],
-            item__source__in=[tv.item.source for tv in tv_list],
-            item__media_type=MediaTypes.SEASON.value,
-            item__season_number__gt=0,
-            item__is_specials_override=False,
-            item__is_hidden_override=False,
-            datetime__gt=UNKNOWN_RELEASE_DATETIME,
-            datetime__lte=current_time,
-            content_number__isnull=False,
-        ).select_related("item")
-
-        for event in aired_events:
-            tv = tv_by_media_key.get((event.item.media_id, event.item.source))
-            if tv is None:
-                continue
-
-            season_number = event.item.season_number
-            if event.content_number in hidden_episode_map.get(
-                (tv.item.media_id, tv.item.source, season_number),
-                set(),
-            ):
-                continue
-
-            tv_seasons = aired_episode_map.setdefault(tv.id, {})
-            season_data = tv_seasons.setdefault(
-                season_number,
-                {"item": event.item, "episodes": set()},
-            )
-            season_data["episodes"].add(event.content_number)
-
-        return aired_episode_map
+        return self._get_tv_episode_event_map(
+            tv_list,
+            hidden_episode_map,
+            after_datetime=UNKNOWN_RELEASE_DATETIME,
+            before_or_equal_datetime=current_time,
+        )
 
     def _get_tv_dated_episode_map(self, tv_list, hidden_episode_map):
         """Return real-dated episode numbers keyed by TV id and season number."""
-        if not tv_list:
-            return {}
-
-        tv_by_media_key = {(tv.item.media_id, tv.item.source): tv for tv in tv_list}
-        dated_episode_map = {}
-        dated_events = events.models.Event.objects.filter(
-            item__media_id__in=[tv.item.media_id for tv in tv_list],
-            item__source__in=[tv.item.source for tv in tv_list],
-            item__media_type=MediaTypes.SEASON.value,
-            item__season_number__gt=0,
-            item__is_specials_override=False,
-            item__is_hidden_override=False,
-            datetime__gt=UNKNOWN_RELEASE_DATETIME,
-            content_number__isnull=False,
-        ).select_related("item")
-
-        for event in dated_events:
-            tv = tv_by_media_key.get((event.item.media_id, event.item.source))
-            if tv is None:
-                continue
-
-            season_number = event.item.season_number
-            if event.content_number in hidden_episode_map.get(
-                (tv.item.media_id, tv.item.source, season_number),
-                set(),
-            ):
-                continue
-
-            tv_seasons = dated_episode_map.setdefault(tv.id, {})
-            season_data = tv_seasons.setdefault(
-                season_number,
-                {"item": event.item, "episodes": set()},
-            )
-            season_data["episodes"].add(event.content_number)
-
-        return dated_episode_map
+        return self._get_tv_episode_event_map(
+            tv_list,
+            hidden_episode_map,
+            after_datetime=UNKNOWN_RELEASE_DATETIME,
+        )
 
     def _get_tv_all_episode_map(self, tv_list, hidden_episode_map):
         """Return all known episode numbers keyed by TV id and season number."""
+        return self._get_tv_episode_event_map(tv_list, hidden_episode_map)
+
+    def _get_tv_episode_event_map(
+        self,
+        tv_list,
+        hidden_episode_map,
+        *,
+        after_datetime=None,
+        before_or_equal_datetime=None,
+    ):
+        """Return event episode numbers keyed by TV id and season number."""
         if not tv_list:
             return {}
 
         tv_by_media_key = {(tv.item.media_id, tv.item.source): tv for tv in tv_list}
-        all_episode_map = {}
-        all_events = events.models.Event.objects.filter(
-            item__media_id__in=[tv.item.media_id for tv in tv_list],
-            item__source__in=[tv.item.source for tv in tv_list],
-            item__media_type=MediaTypes.SEASON.value,
-            item__season_number__gt=0,
-            item__is_specials_override=False,
-            item__is_hidden_override=False,
-            content_number__isnull=False,
+        episode_map = {}
+        event_filters = {
+            "item__media_id__in": [tv.item.media_id for tv in tv_list],
+            "item__source__in": [tv.item.source for tv in tv_list],
+            "item__media_type": MediaTypes.SEASON.value,
+            "item__season_number__gt": 0,
+            "item__is_specials_override": False,
+            "item__is_hidden_override": False,
+            "content_number__isnull": False,
+        }
+        if after_datetime is not None:
+            event_filters["datetime__gt"] = after_datetime
+        if before_or_equal_datetime is not None:
+            event_filters["datetime__lte"] = before_or_equal_datetime
+
+        episode_events = events.models.Event.objects.filter(
+            **event_filters,
         ).select_related("item")
 
-        for event in all_events:
+        for event in episode_events:
             tv = tv_by_media_key.get((event.item.media_id, event.item.source))
             if tv is None:
                 continue
 
             season_number = event.item.season_number
-            if event.content_number in hidden_episode_map.get(
-                (tv.item.media_id, tv.item.source, season_number),
-                set(),
-            ):
+            hidden_numbers = self._get_hidden_episode_numbers(
+                tv.item.media_id,
+                tv.item.source,
+                season_number,
+                hidden_episode_map,
+            )
+            if event.content_number in hidden_numbers:
                 continue
 
-            tv_seasons = all_episode_map.setdefault(tv.id, {})
+            tv_seasons = episode_map.setdefault(tv.id, {})
             season_data = tv_seasons.setdefault(
                 season_number,
                 {"item": event.item, "episodes": set()},
             )
             season_data["episodes"].add(event.content_number)
 
-        return all_episode_map
-
-    def _get_tv_known_episode_item_map(self, tv_list):
-        """Return local episode item numbers keyed by TV id and season number."""
-        if not tv_list:
-            return {}
-
-        tv_by_media_key = {(tv.item.media_id, tv.item.source): tv for tv in tv_list}
-        known_episode_map = {}
-        episode_items = Item.objects.filter(
-            media_id__in=[tv.item.media_id for tv in tv_list],
-            source__in=[tv.item.source for tv in tv_list],
-            media_type=MediaTypes.EPISODE.value,
-            season_number__gt=0,
-            is_hidden_override=False,
-        ).values_list("media_id", "source", "season_number", "episode_number")
-
-        for media_id, source, season_number, episode_number in episode_items:
-            tv = tv_by_media_key.get((media_id, source))
-            if tv is None:
-                continue
-
-            tv_seasons = known_episode_map.setdefault(tv.id, {})
-            season_data = tv_seasons.setdefault(
-                season_number,
-                {"episodes": set()},
-            )
-            season_data["episodes"].add(episode_number)
-
-        return known_episode_map
+        return episode_map
 
     def _get_specials_override_numbers(self, media_list):
         """Return specials-override season numbers keyed by (media_id, source)."""
@@ -1373,11 +1295,10 @@ class MediaManager(models.Manager):
                 continue
 
             watched_episodes.update(
-                {
-                    (season.item.season_number, episode.item.episode_number)
-                    for episode in season.episodes.all()
-                    if not episode.item.is_hidden_override
-                },
+                (season.item.season_number, episode_number)
+                for episode_number in self._get_visible_watched_numbers_for_season(
+                    season,
+                )
             )
         return watched_episodes
 
@@ -2362,9 +2283,9 @@ class Season(Media):
 
         return episodes_to_create
 
-    def get_visible_episode_numbers(self, season_metadata):
-        """Return provider episode numbers excluding hidden episode items."""
-        hidden_episode_numbers = set(
+    def get_hidden_episode_numbers(self):
+        """Return hidden episode numbers for this season."""
+        return set(
             Item.objects.filter(
                 media_id=self.item.media_id,
                 source=self.item.source,
@@ -2373,6 +2294,10 @@ class Season(Media):
                 is_hidden_override=True,
             ).values_list("episode_number", flat=True),
         )
+
+    def get_visible_episode_numbers(self, season_metadata):
+        """Return provider episode numbers excluding hidden episode items."""
+        hidden_episode_numbers = self.get_hidden_episode_numbers()
 
         return [
             episode["episode_number"]
