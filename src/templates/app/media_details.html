@@ -166,14 +166,14 @@
       {% if current_instance.notes %}
         <div class="flex items-start mt-5">
           {% include "app/icons/page-empty.svg" with classes="w-5 h-5 mr-2 text-yellow-400 shrink-0 mt-0.5" %}
-          <div class="font-medium text-gray-400 mb-1">YOUR NOTES</div>
+          <div class="font-medium font-display text-gray-400 mb-1">YOUR NOTES</div>
         </div>
 
         <div x-data="{ isExpanded: false, isClamped: false, checkClamp() { const element = this.$refs.notesText; this.isClamped = element.scrollHeight > element.clientHeight; } }"
               x-init="$nextTick(() => checkClamp())">
           <p x-ref="notesText"
               :class="isExpanded ? '' : 'line-clamp-2'"
-              class="text-gray-300">"{{ current_instance.notes|linebreaksbr }}"</p>
+              class="text-gray-300">{{ current_instance.notes|linebreaksbr }}</p>
           <button x-show="isClamped"
                   @click="isExpanded = !isExpanded"
                   class="text-indigo-400 hover:text-indigo-300 text-xs mt-1 focus:outline-none transition-colors cursor-pointer">
