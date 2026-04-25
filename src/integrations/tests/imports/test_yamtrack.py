@@ -1,4 +1,6 @@
 from datetime import UTC, datetime
+from decimal import Decimal
+from io import BytesIO
 from pathlib import Path
 
 from django.contrib.auth import get_user_model
@@ -13,9 +15,7 @@ from app.models import (
     Movie,
     Season,
 )
-from integrations.imports import (
-    yamtrack,
-)
+from integrations.imports import yamtrack
 
 mock_path = Path(__file__).resolve().parent.parent / "mock_data"
 app_mock_path = (
@@ -159,3 +159,96 @@ class ImportYamtrackPartials(TestCase):
             datetime(2024, 3, 9, 0, 0, 0, tzinfo=UTC),
         )
 
+
+class ImportYamtrackEpisodeSharedFields(TestCase):
+    """Test importing shared episode score and notes from Yamtrack CSV."""
+
+    def setUp(self):
+        """Create user for the tests."""
+        self.credentials = {"username": "test", "password": "12345"}
+        self.user = get_user_model().objects.create_user(**self.credentials)
+
+    def import_csv(self, content):
+        """Import CSV content for the test user."""
+        return yamtrack.importer(BytesIO(content.encode("utf-8")), self.user, "new")
+
+    def test_import_normalizes_episode_shared_fields_to_most_recent_watch(self):
+        """Repeated watches should share the newest imported score and notes."""
+        expected_score = Decimal("9.0")
+        csv_content = (
+            "media_id,source,media_type,title,image,season_number,episode_number,"
+            "is_hidden_override,is_specials_override,score,status,notes,"
+            "start_date,end_date,progress,created_at,progressed_at\n"
+            "1668,tmdb,tv,Friends,https://image.tmdb.org/t/p/w500/show.jpg,,,"
+            "False,False,,Completed,,,,0,2024-01-01T00:00:00Z,\n"
+            "1668,tmdb,season,Friends,https://image.tmdb.org/t/p/w500/season1.jpg,"
+            "1,,False,False,,Completed,,,,0,2024-01-01T00:00:00Z,\n"
+            "1668,tmdb,episode,Friends,https://image.tmdb.org/t/p/w500/"
+            "episode1.jpg,1,1,False,False,9.0,,Newest shared notes,,"
+            "2024-03-01T00:00:00Z,0,2024-03-01T00:00:00Z,2024-03-01T00:00:00Z\n"
+            "1668,tmdb,episode,Friends,https://image.tmdb.org/t/p/w500/"
+            "episode1.jpg,1,1,False,False,2.0,,Older shared notes,,"
+            "2024-02-01T00:00:00Z,0,2024-02-01T00:00:00Z,2024-02-01T00:00:00Z\n"
+            "1668,tmdb,episode,Friends,https://image.tmdb.org/t/p/w500/"
+            "episode2.jpg,1,2,False,False,7.5,,Carry forward notes,,"
+            "2024-02-10T00:00:00Z,0,2024-02-10T00:00:00Z,2024-02-10T00:00:00Z\n"
+            "1668,tmdb,episode,Friends,https://image.tmdb.org/t/p/w500/"
+            "episode2.jpg,1,2,False,False,,Completed,,,2024-03-10T00:00:00Z,"
+            "0,2024-03-10T00:00:00Z,2024-03-10T00:00:00Z"
+        )
+
+        self.import_csv(csv_content)
+
+        episode_one_watches = list(
+            Episode.objects.filter(
+                related_season__user=self.user,
+                item__media_id="1668",
+                item__season_number=1,
+                item__episode_number=1,
+            ).order_by("end_date"),
+        )
+        self.assertEqual(len(episode_one_watches), 2)
+        self.assertTrue(
+            all(watch.score == expected_score for watch in episode_one_watches),
+        )
+        self.assertTrue(
+            all(watch.notes == "Newest shared notes" for watch in episode_one_watches),
+        )
+
+        episode_two_watches = list(
+            Episode.objects.filter(
+                related_season__user=self.user,
+                item__media_id="1668",
+                item__season_number=1,
+                item__episode_number=2,
+            ).order_by("end_date"),
+        )
+        self.assertEqual(len(episode_two_watches), 2)
+        self.assertTrue(all(watch.score is None for watch in episode_two_watches))
+        self.assertTrue(all(watch.notes == "" for watch in episode_two_watches))
+
+    def test_invalid_episode_shared_fields_skip_row_with_warning(self):
+        """Invalid shared episode score should warn and skip the episode row."""
+        csv_content = (
+            "media_id,source,media_type,title,image,season_number,episode_number,"
+            "is_hidden_override,is_specials_override,score,status,notes,"
+            "start_date,end_date,progress,created_at,progressed_at\n"
+            "1668,tmdb,tv,Friends,https://image.tmdb.org/t/p/w500/show.jpg,,,"
+            "False,False,,Completed,,,,0,2024-01-01T00:00:00Z,\n"
+            "1668,tmdb,season,Friends,https://image.tmdb.org/t/p/w500/season1.jpg,"
+            "1,,False,False,,Completed,,,,0,2024-01-01T00:00:00Z,\n"
+            "1668,tmdb,episode,Friends,https://image.tmdb.org/t/p/w500/"
+            "episode1.jpg,1,1,False,False,11.0,,Too high,,2024-03-01T00:00:00Z,"
+            "0,2024-03-01T00:00:00Z,2024-03-01T00:00:00Z"
+        )
+
+        import_results = self.import_csv(csv_content)
+
+        self.assertEqual(
+            Episode.objects.filter(related_season__user=self.user).count(),
+            0,
+        )
+        self.assertIn(
+            "Ensure this value is less than or equal to 10",
+            import_results[1],
+        )

@@ -1,13 +1,16 @@
 import logging
 from collections import defaultdict
 from csv import DictReader
+from datetime import UTC, datetime
 
 from django.apps import apps
 from django.conf import settings
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-import app
 from app import config
+from app import forms as app_forms
+from app import models as app_models
 from app.models import MediaTypes, Sources
 from app.providers import services
 from app.templatetags import app_tags
@@ -47,6 +50,8 @@ class YamtrackImporter:
 
         # Track bulk creation lists for each media type
         self.bulk_media = defaultdict(list)
+        self.episode_shared_candidates = {}
+        self.episode_instances_by_key = defaultdict(list)
 
         logger.info(
             "Initialized Yamtrack CSV importer for user %s with mode %s",
@@ -64,9 +69,9 @@ class YamtrackImporter:
 
         reader = DictReader(decoded_file)
 
-        for row in reader:
+        for row_index, row in enumerate(reader, start=1):
             try:
-                self._process_row(row)
+                self._process_row(row, row_index)
             except services.ProviderAPIError as error:
                 error_msg = (
                     f"Error processing entry with ID {row['media_id']} "
@@ -78,6 +83,7 @@ class YamtrackImporter:
                 error_msg = f"Error processing entry: {row}"
                 raise MediaImportUnexpectedError(error_msg) from error
 
+        self._normalize_episode_shared_fields()
         helpers.cleanup_existing_media(self.to_delete, self.user)
         helpers.bulk_create_media(self.bulk_media, self.user)
 
@@ -89,7 +95,7 @@ class YamtrackImporter:
         deduplicated_messages = "\n".join(dict.fromkeys(self.warnings))
         return imported_counts, deduplicated_messages
 
-    def _process_row(self, row):
+    def _process_row(self, row, row_index):
         """Process a single row from the CSV file."""
         media_type = row["media_type"]
 
@@ -128,7 +134,7 @@ class YamtrackImporter:
                 episode_number,
             )
 
-        item, _ = app.models.Item.objects.update_or_create(
+        item, _ = app_models.Item.objects.update_or_create(
             media_id=row["media_id"],
             source=row["source"],
             media_type=media_type,
@@ -146,12 +152,21 @@ class YamtrackImporter:
             instance.user = self.user
 
         row["item"] = item
-        form = app.forms.get_form_class(media_type)(
+        form = app_forms.get_form_class(media_type)(
             row,
             instance=instance,
         )
 
         if form.is_valid():
+            if (
+                media_type == MediaTypes.EPISODE.value
+                and not self._validate_and_track_episode_shared_fields(
+                    row,
+                    row_index,
+                    form.instance,
+                )
+            ):
+                return
             progressed_at = row.get("progressed_at")
             if progressed_at:
                 form.instance._history_date = parse_datetime(progressed_at)
@@ -160,6 +175,73 @@ class YamtrackImporter:
             error_msg = f"{row['title']} ({media_type}): {form.errors.as_json()}"
             self.warnings.append(error_msg)
             logger.error(error_msg)
+
+    def _validate_and_track_episode_shared_fields(self, row, row_index, instance):
+        """Validate and stage episode shared fields for later normalization."""
+        shared_form = app_forms.EpisodeSharedFieldsForm(
+            data={
+                "score": row.get("score") or "",
+                "notes": row.get("notes") or "",
+            },
+        )
+        if not shared_form.is_valid():
+            error_msg = f"{row['title']} (episode): {shared_form.errors.as_json()}"
+            self.warnings.append(error_msg)
+            logger.error(error_msg)
+            return False
+
+        episode_key = (
+            row["source"],
+            row["media_id"],
+            instance.item.season_number,
+            instance.item.episode_number,
+        )
+        rank = self._episode_shared_rank(
+            instance.end_date,
+            parse_datetime(row.get("created_at")) if row.get("created_at") else None,
+            row_index,
+        )
+        candidate = {
+            "rank": rank,
+            "score": shared_form.cleaned_data["score"],
+            "notes": shared_form.cleaned_data["notes"],
+        }
+
+        current = self.episode_shared_candidates.get(episode_key)
+        if current is None or candidate["rank"] > current["rank"]:
+            self.episode_shared_candidates[episode_key] = candidate
+
+        self.episode_instances_by_key[episode_key].append(instance)
+        return True
+
+    def _normalize_episode_shared_fields(self):
+        """Apply canonical shared episode fields across imported watches."""
+        for episode_key, instances in self.episode_instances_by_key.items():
+            candidate = self.episode_shared_candidates.get(episode_key)
+            if candidate is None:
+                continue
+
+            for instance in instances:
+                instance.score = candidate["score"]
+                instance.notes = candidate["notes"]
+
+    def _episode_shared_rank(self, end_date, created_at, row_index):
+        """Return comparable rank tuple for episode shared-field conflicts."""
+        return (
+            end_date is not None,
+            self._normalize_datetime(end_date),
+            created_at is not None,
+            self._normalize_datetime(created_at),
+            row_index,
+        )
+
+    def _normalize_datetime(self, value):
+        """Return an aware datetime for ranking, or the minimum sentinel."""
+        if value is None:
+            return datetime.min.replace(tzinfo=UTC)
+        if timezone.is_naive(value):
+            return timezone.make_aware(value, timezone.get_default_timezone())
+        return value
 
     def _handle_missing_metadata(self, row, media_type, season_number, episode_number):
         """Handle missing metadata by fetching from provider."""
