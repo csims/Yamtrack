@@ -1,10 +1,23 @@
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.formats import date_format
 
-from app.models import TV, Anime, Item, MediaTypes, Movie, Sources, Status
+from app.models import (
+    TV,
+    Anime,
+    Episode,
+    Item,
+    MediaTypes,
+    Movie,
+    Season,
+    Sources,
+    Status,
+)
 from lists.models import CustomList, CustomListItem
 
 
@@ -449,6 +462,37 @@ class ListDetailViewTests(TestCase):
             user=self.user,
         )
 
+        season_item = Item.objects.create(
+            media_id="2668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Test TV Show",
+            season_number=1,
+        )
+        season = Season.objects.create(
+            item=season_item,
+            user=self.user,
+            status=Status.IN_PROGRESS.value,
+        )
+        episode_item = Item.objects.create(
+            media_id="2668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            title="Test TV Show Episode",
+            season_number=1,
+            episode_number=1,
+        )
+        Episode.objects.create(
+            item=episode_item,
+            related_season=season,
+            end_date=datetime(2023, 6, 1, 0, 0, tzinfo=UTC),
+            score=7.5,
+        )
+        CustomListItem.objects.create(
+            custom_list=self.custom_list,
+            item=episode_item,
+        )
+
         # Test title sorting
         mock_update_preference.side_effect = ["title", None]
         response = self.client.get(
@@ -461,15 +505,19 @@ class ListDetailViewTests(TestCase):
         # Test title sorting descending
         mock_update_preference.side_effect = ["title", None]
         response = self.client.get(
-            reverse("list_detail", args=[self.custom_list.id])
-            + "?sort=title&dir=desc",
+            reverse("list_detail", args=[self.custom_list.id]) + "?sort=title&dir=desc",
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["current_sort"], "title")
         self.assertEqual(response.context["current_sort_dir"], "desc")
         self.assertEqual(
             [item.title for item in response.context["items"]],
-            ["Test TV Show", "Test Movie", "Test Anime"],
+            [
+                "Test TV Show Episode",
+                "Test TV Show",
+                "Test Movie",
+                "Test Anime",
+            ],
         )
 
         # Test media_type sorting
@@ -490,21 +538,85 @@ class ListDetailViewTests(TestCase):
         self.assertEqual(response.context["current_sort_dir"], "desc")
         self.assertEqual(
             [item.title for item in response.context["items"]],
-            ["Test Movie", "Test TV Show", "Test Anime"],
+            ["Test Movie", "Test TV Show Episode", "Test TV Show", "Test Anime"],
         )
 
         # Test rating sorting ascending
         mock_update_preference.side_effect = ["rating", None]
         response = self.client.get(
-            reverse("list_detail", args=[self.custom_list.id])
-            + "?sort=rating&dir=asc",
+            reverse("list_detail", args=[self.custom_list.id]) + "?sort=rating&dir=asc",
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["current_sort"], "rating")
         self.assertEqual(response.context["current_sort_dir"], "asc")
         self.assertEqual(
             [item.title for item in response.context["items"]],
-            ["Test Anime", "Test TV Show", "Test Movie"],
+            ["Test Anime", "Test TV Show", "Test TV Show Episode", "Test Movie"],
+        )
+
+    @patch.object(get_user_model(), "update_preference")
+    @patch.object(CustomList, "user_can_view")
+    def test_list_detail_view_episode_displays_latest_rating_and_watch_date(
+        self,
+        mock_user_can_view,
+        mock_update_preference,
+    ):
+        """Episode cards should show the latest watch rating and watch date."""
+        mock_update_preference.side_effect = ["date_added", None]
+        mock_user_can_view.return_value = True
+
+        season_item = Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Test TV Show",
+            season_number=1,
+        )
+        season = Season.objects.create(
+            item=season_item,
+            user=self.user,
+            status=Status.IN_PROGRESS.value,
+        )
+        episode_item = Item.objects.create(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            title="Pilot",
+            season_number=1,
+            episode_number=1,
+        )
+        CustomListItem.objects.create(
+            custom_list=self.custom_list,
+            item=episode_item,
+        )
+
+        Episode.objects.create(
+            item=episode_item,
+            related_season=season,
+            end_date=datetime(2023, 6, 1, 0, 0, tzinfo=UTC),
+            score=4,
+        )
+        latest_watch = Episode.objects.create(
+            item=episode_item,
+            related_season=season,
+            end_date=datetime(2023, 6, 2, 0, 0, tzinfo=UTC),
+            score=8.5,
+        )
+
+        response = self.client.get(reverse("list_detail", args=[self.custom_list.id]))
+        self.assertEqual(response.status_code, 200)
+
+        episode_list_item = response.context["items"][0]
+        self.assertEqual(episode_list_item.media, latest_watch)
+        self.assertEqual(episode_list_item.media.formatted_score, 8.5)
+        self.assertEqual(episode_list_item.media.status, Status.COMPLETED.value)
+        self.assertContains(response, "8.5")
+        self.assertContains(
+            response,
+            date_format(
+                timezone.localtime(latest_watch.end_date),
+                "SHORT_DATE_FORMAT",
+            ),
         )
 
     @patch.object(get_user_model(), "update_preference")

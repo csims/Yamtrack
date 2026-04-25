@@ -1351,7 +1351,15 @@ class MediaManager(models.Manager):
                 if status_filter:
                     filter_kwargs["status"] = status_filter
 
-            queryset = model.objects.filter(**filter_kwargs).select_related("item")
+            queryset = model.objects.filter(**filter_kwargs)
+            if media_type == MediaTypes.EPISODE.value:
+                queryset = queryset.select_related("item", "related_season").order_by(
+                    "item_id",
+                    "-end_date",
+                    "-created_at",
+                )
+            else:
+                queryset = queryset.select_related("item")
             queryset = self._apply_prefetch_related(queryset, media_type)
             self.annotate_max_progress(queryset, media_type)
 
@@ -2478,6 +2486,22 @@ class Episode(models.Model):
                 TV,
                 fields=["status"],
             )
+
+    @property
+    def formatted_score(self):
+        """Return as int if score is 10.0 or 0.0, otherwise show decimal."""
+        if self.score is not None:
+            max_score = 10
+            min_score = 0
+            if self.score in (max_score, min_score):
+                return int(self.score)
+            return self.score
+        return None
+
+    @property
+    def status(self):
+        """Treat watched episodes as completed for shared card rendering."""
+        return Status.COMPLETED.value if self.end_date is not None else None
 
 
 class Manga(Media):

@@ -301,6 +301,36 @@ class MediaManagerTests(TestCase):
             for season in season_list:
                 list(season.episodes.all())
 
+    def test_fetch_media_for_items_returns_latest_episode_watch(self):
+        """Episode list fetch should use the latest watch for each item."""
+        manager = MediaManager()
+        episode_item = Item.objects.get(
+            media_id="1668",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.EPISODE.value,
+            season_number=1,
+            episode_number=1,
+        )
+        latest_watch = Episode.objects.create(
+            item=episode_item,
+            related_season=self.season1,
+            end_date=datetime(2023, 7, 1, 0, 0, tzinfo=UTC),
+            score=8.5,
+        )
+
+        media_by_item_id = manager.fetch_media_for_items(
+            [MediaTypes.EPISODE.value],
+            [episode_item.id],
+            self.user,
+        )
+
+        self.assertEqual(media_by_item_id[episode_item.id], latest_watch)
+        self.assertEqual(media_by_item_id[episode_item.id].formatted_score, 8.5)
+        self.assertEqual(
+            media_by_item_id[episode_item.id].status,
+            Status.COMPLETED.value,
+        )
+
     def test_sort_media_list(self):
         """Test the _sort_media_list method."""
         manager = MediaManager()

@@ -29,19 +29,24 @@ def annotate_items_with_user_score(items, *, user):
     score_field = DecimalField(max_digits=3, decimal_places=1)
 
     for media_type in MediaTypes.values:
-        if media_type == MediaTypes.EPISODE.value:
-            continue
-
         model = apps.get_model("app", media_type)
+        filters = {"item": OuterRef("pk")}
+
+        if media_type == MediaTypes.EPISODE.value:
+            filters["related_season__user"] = user
+            queryset = model.objects.filter(**filters).order_by(
+                "-end_date",
+                "-created_at",
+            )
+        else:
+            filters["user"] = user
+            queryset = model.objects.filter(**filters)
+
         score_cases.append(
             When(
                 media_type=media_type,
                 then=Subquery(
-                    model.objects.filter(
-                        item=OuterRef("pk"),
-                        user=user,
-                    )
-                    .values("score")[:1],
+                    queryset.values("score")[:1],
                 ),
             ),
         )
