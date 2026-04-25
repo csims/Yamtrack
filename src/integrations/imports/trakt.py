@@ -13,6 +13,7 @@ from app.models import MediaTypes, Sources, Status
 from app.providers import services
 from integrations.imports import helpers
 from integrations.imports.helpers import MediaImportError, MediaImportUnexpectedError
+from lists.models import CustomList, CustomListItem, ImportedListSourceChoices
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +175,7 @@ class TraktImporter:
 
         # Track media instances being created
         self.media_instances = defaultdict(lambda: defaultdict(list))
+        self.list_counts = defaultdict(int)
 
         logger.info(
             "Initialized Trakt importer for user %s with mode %s",
@@ -190,14 +192,26 @@ class TraktImporter:
 
         helpers.cleanup_existing_media(self.to_delete, self.user)
         helpers.bulk_create_media(self.bulk_media, self.user)
+        self.process_lists()
 
         imported_counts = {
             media_type: len(media_list)
             for media_type, media_list in self.bulk_media.items()
         }
+        imported_counts.update(
+            {
+                count_type: count
+                for count_type, count in self.list_counts.items()
+                if count > 0
+            },
+        )
         deduplicated_messages = "\n".join(dict.fromkeys(self.warnings))
 
         return imported_counts, deduplicated_messages
+
+    def _format_warning_prefix(self, warning_context):
+        """Format a warning prefix when extra context is provided."""
+        return f"{warning_context} - " if warning_context else ""
 
     def _make_api_request(self, url):
         """Make a request to the Trakt API with proper headers."""
@@ -295,7 +309,7 @@ class TraktImporter:
                 msg = f"Error processing history entry: {entry}"
                 raise MediaImportUnexpectedError(msg) from e
 
-    def _get_tmdb_id(self, entry_data):
+    def _get_tmdb_id(self, entry_data, warning_context=None, title=None):
         """Extract TMDB ID from entry data."""
         if (
             "ids" in entry_data
@@ -304,12 +318,21 @@ class TraktImporter:
         ):
             return str(entry_data["ids"]["tmdb"])
 
+        prefix = self._format_warning_prefix(warning_context)
+        warning_title = title or entry_data.get("title") or "Unknown title"
         self.warnings.append(
-            f"{entry_data['title']}: No {Sources.TMDB.label} ID found.",
+            f"{prefix}{warning_title}: No {Sources.TMDB.label} ID found.",
         )
         return None
 
-    def _get_metadata(self, media_type, tmdb_id, title, season_number=None):
+    def _get_metadata(
+        self,
+        media_type,
+        tmdb_id,
+        title,
+        season_number=None,
+        warning_context=None,
+    ):
         """Get metadata for a media item."""
         try:
             kwargs = {}
@@ -326,8 +349,12 @@ class TraktImporter:
             if error.status_code == requests.codes.not_found:
                 if media_type == MediaTypes.SEASON.value:
                     title = f"{title} S{season_number}"
+                prefix = self._format_warning_prefix(warning_context)
                 self.warnings.append(
-                    f"{title}: not found in {Sources.TMDB.label} with ID {tmdb_id}.",
+                    (
+                        f"{prefix}{title}: not found in {Sources.TMDB.label} "
+                        f"with ID {tmdb_id}."
+                    ),
                 )
                 return None
             raise
@@ -604,6 +631,317 @@ class TraktImporter:
             except Exception as e:
                 msg = f"Error processing comment entry: {entry}"
                 raise MediaImportUnexpectedError(msg) from e
+
+    def process_lists(self):
+        """Process custom lists from Trakt."""
+        logger.info("Importing custom lists for user %s", self.username)
+        lists_endpoint = f"{self.user_base_url}/lists"
+        trakt_lists = self._make_api_request(lists_endpoint)
+
+        for trakt_list in trakt_lists:
+            try:
+                self._process_list(trakt_list)
+            except Exception:
+                list_name = trakt_list.get("name", "Unnamed list")
+                self.warnings.append(
+                    f"List '{list_name}': unexpected error while importing list.",
+                )
+                logger.exception(
+                    "Unexpected error importing Trakt list %s for user %s",
+                    list_name,
+                    self.username,
+                )
+
+    def _process_list(self, trakt_list):
+        """Create or update a custom list from Trakt."""
+        list_name = trakt_list["name"]
+        list_identifier = self._get_trakt_list_identifier(trakt_list)
+        if not list_identifier:
+            self.warnings.append(
+                f"List '{list_name}': missing Trakt list identifier.",
+            )
+            return
+
+        list_items = self._get_list_items(list_identifier, list_name)
+        if list_items is None:
+            return
+
+        resolved_item_ids = []
+        for entry in list_items:
+            item = self._resolve_list_item(list_name, entry)
+            if item is not None:
+                resolved_item_ids.append(item.id)
+
+        custom_list, created = CustomList.objects.get_or_create(
+            owner=self.user,
+            import_source=ImportedListSourceChoices.TRAKT.value,
+            import_source_id=list_identifier,
+            defaults={
+                "name": list_name,
+                "description": trakt_list.get("description") or "",
+            },
+        )
+
+        if created:
+            self.list_counts["list_created"] += 1
+        else:
+            self.list_counts["list_updated"] += 1
+
+        self._sync_list_metadata(custom_list, trakt_list)
+        self._sync_list_items(custom_list, resolved_item_ids)
+
+    def _get_trakt_list_identifier(self, trakt_list):
+        """Return the stable Trakt identifier for a list."""
+        list_ids = trakt_list.get("ids", {})
+        trakt_id = list_ids.get("trakt")
+        if trakt_id:
+            return str(trakt_id)
+        return list_ids.get("slug")
+
+    def _get_list_items(self, list_identifier, list_name):
+        """Fetch all items for a Trakt list."""
+        page = 1
+        all_items = []
+
+        while True:
+            url = (
+                f"{self.user_base_url}/lists/{list_identifier}/items"
+                f"?page={page}&limit={BULK_PAGE_SIZE}"
+            )
+
+            try:
+                page_items = self._make_api_request(url)
+            except requests.exceptions.HTTPError as error:
+                if error.response.status_code == requests.codes.not_found:
+                    self.warnings.append(
+                        f"List '{list_name}': unable to fetch list items from Trakt.",
+                    )
+                    return None
+                raise
+
+            if not page_items:
+                break
+
+            all_items.extend(page_items)
+            page += 1
+
+        return all_items
+
+    def _sync_list_metadata(self, custom_list, trakt_list):
+        """Keep linked custom-list metadata in sync with Trakt."""
+        fields_to_update = []
+        description = trakt_list.get("description") or ""
+
+        if custom_list.name != trakt_list["name"]:
+            custom_list.name = trakt_list["name"]
+            fields_to_update.append("name")
+
+        if custom_list.description != description:
+            custom_list.description = description
+            fields_to_update.append("description")
+
+        if fields_to_update:
+            custom_list.save(update_fields=fields_to_update)
+
+    def _sync_list_items(self, custom_list, item_ids):
+        """Sync the contents of a linked custom list."""
+        ordered_item_ids = list(dict.fromkeys(item_ids))
+
+        if self.mode == "overwrite":
+            custom_list.items.set(ordered_item_ids)
+            self.list_counts["list_item"] += len(ordered_item_ids)
+            return
+
+        existing_item_ids = set(custom_list.items.values_list("id", flat=True))
+        new_item_ids = [
+            item_id for item_id in ordered_item_ids if item_id not in existing_item_ids
+        ]
+
+        if not new_item_ids:
+            return
+
+        CustomListItem.objects.bulk_create(
+            [
+                CustomListItem(custom_list=custom_list, item_id=item_id)
+                for item_id in new_item_ids
+            ],
+            ignore_conflicts=True,
+        )
+        self.list_counts["list_item"] += len(new_item_ids)
+
+    def _resolve_list_item(self, list_name, entry):
+        """Resolve a Trakt list entry to a Yamtrack item."""
+        entry_type = entry["type"]
+
+        if entry_type == "person":
+            return None
+        if entry_type == "movie":
+            return self._resolve_movie_list_item(list_name, entry)
+        if entry_type == "show":
+            return self._resolve_show_list_item(list_name, entry)
+        if entry_type == "season":
+            return self._resolve_season_list_item(list_name, entry)
+        if entry_type == "episode":
+            return self._resolve_episode_list_item(list_name, entry)
+
+        self.warnings.append(
+            (
+                f"List '{list_name}' - {self._get_list_item_display_name(entry)}: "
+                "unsupported list item type."
+            ),
+        )
+        return None
+
+    def _resolve_movie_list_item(self, list_name, entry):
+        """Resolve a movie list item."""
+        movie = entry["movie"]
+        item_name = self._get_list_item_display_name(entry)
+        tmdb_id = self._get_tmdb_id(
+            movie,
+            warning_context=f"List '{list_name}'",
+            title=item_name,
+        )
+        if not tmdb_id:
+            return None
+
+        metadata = self._get_metadata(
+            MediaTypes.MOVIE.value,
+            tmdb_id,
+            movie["title"],
+            warning_context=f"List '{list_name}'",
+        )
+        if not metadata:
+            return None
+
+        return self._get_or_create_item(MediaTypes.MOVIE.value, tmdb_id, metadata)
+
+    def _resolve_show_list_item(self, list_name, entry):
+        """Resolve a show list item."""
+        show = entry["show"]
+        item_name = self._get_list_item_display_name(entry)
+        tmdb_id = self._get_tmdb_id(
+            show,
+            warning_context=f"List '{list_name}'",
+            title=item_name,
+        )
+        if not tmdb_id:
+            return None
+
+        metadata = self._get_metadata(
+            MediaTypes.TV.value,
+            tmdb_id,
+            show["title"],
+            warning_context=f"List '{list_name}'",
+        )
+        if not metadata:
+            return None
+
+        return self._get_or_create_item(MediaTypes.TV.value, tmdb_id, metadata)
+
+    def _resolve_season_list_item(self, list_name, entry):
+        """Resolve a season list item."""
+        show = entry["show"]
+        season_number = entry["season"]["number"]
+        item_name = self._get_list_item_display_name(entry)
+        tmdb_id = self._get_tmdb_id(
+            show,
+            warning_context=f"List '{list_name}'",
+            title=item_name,
+        )
+        if not tmdb_id:
+            return None
+
+        metadata = self._get_metadata(
+            MediaTypes.SEASON.value,
+            tmdb_id,
+            show["title"],
+            season_number,
+            warning_context=f"List '{list_name}'",
+        )
+        if not metadata:
+            return None
+
+        return self._get_or_create_item(
+            MediaTypes.SEASON.value,
+            tmdb_id,
+            metadata,
+            season_number,
+        )
+
+    def _resolve_episode_list_item(self, list_name, entry):
+        """Resolve an episode list item."""
+        show = entry["show"]
+        season_number = entry["episode"]["season"]
+        episode_number = entry["episode"]["number"]
+        item_name = self._get_list_item_display_name(entry)
+        tmdb_id = self._get_tmdb_id(
+            show,
+            warning_context=f"List '{list_name}'",
+            title=item_name,
+        )
+        if not tmdb_id:
+            return None
+
+        tv_metadata = self._get_metadata(
+            MediaTypes.TV.value,
+            tmdb_id,
+            show["title"],
+            warning_context=f"List '{list_name}'",
+        )
+        if not tv_metadata:
+            return None
+
+        season_metadata = self._get_metadata(
+            MediaTypes.SEASON.value,
+            tmdb_id,
+            show["title"],
+            season_number,
+            warning_context=f"List '{list_name}'",
+        )
+        if not season_metadata:
+            return None
+
+        episode_exists = any(
+            episode["episode_number"] == episode_number
+            for episode in season_metadata["episodes"]
+        )
+        if not episode_exists:
+            self.warnings.append(
+                (
+                    f"List '{list_name}' - {item_name}: not found in "
+                    f"{Sources.TMDB.label} with ID {tmdb_id}."
+                ),
+            )
+            return None
+
+        episode_metadata = {
+            "title": tv_metadata["title"],
+            "image": self._get_episode_image(episode_number, season_metadata),
+        }
+        return self._get_or_create_item(
+            MediaTypes.EPISODE.value,
+            tmdb_id,
+            episode_metadata,
+            season_number,
+            episode_number,
+        )
+
+    def _get_list_item_display_name(self, entry):
+        """Return a human-readable label for a Trakt list entry."""
+        if entry["type"] == "movie":
+            return entry["movie"]["title"]
+        if entry["type"] == "show":
+            return entry["show"]["title"]
+        if entry["type"] == "season":
+            return f"{entry['show']['title']} S{entry['season']['number']}"
+        if entry["type"] == "episode":
+            return (
+                f"{entry['show']['title']} "
+                f"S{entry['episode']['season']}E{entry['episode']['number']}"
+            )
+        if entry["type"] == "person":
+            return entry["person"]["name"]
+        return "Unknown item"
 
     def _process_generic_entry(self, entry, entry_type, attribute_updates=None):
         """Process a generic entry (watchlist, rating, or comment)."""

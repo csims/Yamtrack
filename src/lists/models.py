@@ -5,6 +5,12 @@ from django.db.models import Prefetch, Q
 from app.models import Item
 
 
+class ImportedListSourceChoices(models.TextChoices):
+    """Supported external sources for imported custom lists."""
+
+    TRAKT = "trakt", "Trakt"
+
+
 class CustomListManager(models.Manager):
     """Manager for custom lists."""
 
@@ -50,6 +56,13 @@ class CustomList(models.Model):
 
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
+    import_source = models.CharField(
+        max_length=20,
+        choices=ImportedListSourceChoices.choices,
+        blank=True,
+        default="",
+    )
+    import_source_id = models.CharField(max_length=255, blank=True, default="")
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     collaborators = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
@@ -69,6 +82,23 @@ class CustomList(models.Model):
         """Meta options for the model."""
 
         ordering = ["name"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(import_source="", import_source_id="")
+                    | (~Q(import_source="") & ~Q(import_source_id=""))
+                ),
+                name="lists_customlist_import_source_fields_together",
+            ),
+            models.UniqueConstraint(
+                fields=["owner", "import_source", "import_source_id"],
+                condition=Q(
+                    import_source__gt="",
+                    import_source_id__gt="",
+                ),
+                name="lists_customlist_unique_import_source_per_owner",
+            ),
+        ]
 
     def __str__(self):
         """Return the name of the custom list."""

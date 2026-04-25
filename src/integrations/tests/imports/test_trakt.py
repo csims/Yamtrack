@@ -1,19 +1,23 @@
 from pathlib import Path
 from unittest.mock import patch
 
+import requests
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from app.models import (
     Episode,
+    Item,
     MediaTypes,
     Movie,
+    Sources,
     Status,
 )
 from integrations.imports import (
     helpers,
 )
 from integrations.imports.trakt import TraktImporter, importer
+from lists.models import CustomList, ImportedListSourceChoices
 
 mock_path = Path(__file__).resolve().parent.parent / "mock_data"
 app_mock_path = (
@@ -77,6 +81,36 @@ class ImportTrakt(TestCase):
                 "updated_at": "2023-01-03T00:00:00.000Z",
             },
         }
+
+    def _list_metadata_side_effect(
+        self,
+        media_type,
+        _,
+        title,
+        season_number=None,
+        warning_context=None,  # noqa: ARG002
+    ):
+        """Return metadata for Trakt list item resolution."""
+        if media_type == MediaTypes.MOVIE.value:
+            return {
+                "title": title,
+                "image": "movie_image.jpg",
+            }
+        if media_type == MediaTypes.TV.value:
+            return {
+                "title": title,
+                "image": "tv_image.jpg",
+                "last_episode_season": 3,
+                "max_progress": 10,
+            }
+        if media_type == MediaTypes.SEASON.value:
+            return {
+                "title": f"{title} Season {season_number}",
+                "image": "season_image.jpg",
+                "episodes": [{"episode_number": 2, "still_path": "/still.jpg"}],
+                "max_progress": 10,
+            }
+        return None
 
     @patch("integrations.imports.trakt.TraktImporter._get_metadata")
     def test_process_watched_movie(self, mock_get_metadata):
@@ -306,6 +340,225 @@ class ImportTrakt(TestCase):
         self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.TV.value]), 0)
         self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.SEASON.value]), 0)
         self.assertEqual(len(trakt_importer.bulk_media[MediaTypes.EPISODE.value]), 0)
+
+    @patch("integrations.imports.trakt.TraktImporter._make_api_request")
+    @patch("integrations.imports.trakt.TraktImporter._get_metadata")
+    def test_process_lists_creates_linked_custom_list_and_items(
+        self,
+        mock_get_metadata,
+        mock_make_request,
+    ):
+        """Test Trakt lists import into Yamtrack custom lists."""
+        mock_get_metadata.side_effect = self._list_metadata_side_effect
+        mock_make_request.side_effect = [
+            [
+                {
+                    "name": "Favorites",
+                    "description": "Imported from Trakt",
+                    "ids": {"trakt": 55, "slug": "favorites"},
+                },
+            ],
+            [
+                {
+                    "type": "movie",
+                    "movie": {"title": "Movie One", "ids": {"tmdb": 101}},
+                },
+                {
+                    "type": "show",
+                    "show": {"title": "Show One", "ids": {"tmdb": 202}},
+                },
+                {
+                    "type": "season",
+                    "show": {"title": "Show One", "ids": {"tmdb": 202}},
+                    "season": {"number": 1, "ids": {"tmdb": 303}},
+                },
+                {
+                    "type": "episode",
+                    "show": {"title": "Show One", "ids": {"tmdb": 202}},
+                    "episode": {
+                        "season": 1,
+                        "number": 2,
+                        "title": "Episode Two",
+                        "ids": {"tmdb": 404},
+                    },
+                },
+                {
+                    "type": "person",
+                    "person": {"name": "Ignored Person", "ids": {"tmdb": 505}},
+                },
+            ],
+            [],
+        ]
+
+        trakt_importer = TraktImporter("testuser", self.user, "new")
+        trakt_importer.process_lists()
+
+        custom_list = CustomList.objects.get()
+        self.assertEqual(custom_list.name, "Favorites")
+        self.assertEqual(custom_list.description, "Imported from Trakt")
+        self.assertEqual(
+            custom_list.import_source,
+            ImportedListSourceChoices.TRAKT.value,
+        )
+        self.assertEqual(custom_list.import_source_id, "55")
+        self.assertEqual(custom_list.items.count(), 4)
+        self.assertEqual(trakt_importer.list_counts["list_created"], 1)
+        self.assertEqual(trakt_importer.list_counts["list_item"], 4)
+        self.assertFalse(trakt_importer.warnings)
+
+    @patch("integrations.imports.trakt.TraktImporter._make_api_request")
+    @patch("integrations.imports.trakt.TraktImporter._get_metadata")
+    def test_process_lists_new_mode_updates_existing_linked_list(
+        self,
+        mock_get_metadata,
+        mock_make_request,
+    ):
+        """Test rerunning list import in new mode reuses linked lists."""
+        existing_item = Item.objects.create(
+            title="Existing Movie",
+            media_id="101",
+            media_type=MediaTypes.MOVIE.value,
+            source=Sources.TMDB.value,
+            image="https://example.com/existing.jpg",
+        )
+        custom_list = CustomList.objects.create(
+            name="Old Name",
+            description="Old Description",
+            owner=self.user,
+            import_source=ImportedListSourceChoices.TRAKT.value,
+            import_source_id="55",
+        )
+        custom_list.items.add(existing_item)
+
+        mock_get_metadata.side_effect = self._list_metadata_side_effect
+        mock_make_request.side_effect = [
+            [
+                {
+                    "name": "Favorites",
+                    "description": "Fresh Description",
+                    "ids": {"trakt": 55, "slug": "favorites"},
+                },
+            ],
+            [
+                {
+                    "type": "movie",
+                    "movie": {"title": "Existing Movie", "ids": {"tmdb": 101}},
+                },
+                {
+                    "type": "show",
+                    "show": {"title": "New Show", "ids": {"tmdb": 202}},
+                },
+            ],
+            [],
+        ]
+
+        trakt_importer = TraktImporter("testuser", self.user, "new")
+        trakt_importer.process_lists()
+
+        custom_list.refresh_from_db()
+        self.assertEqual(CustomList.objects.count(), 1)
+        self.assertEqual(custom_list.name, "Favorites")
+        self.assertEqual(custom_list.description, "Fresh Description")
+        self.assertEqual(custom_list.items.count(), 2)
+        self.assertEqual(trakt_importer.list_counts["list_updated"], 1)
+        self.assertEqual(trakt_importer.list_counts["list_item"], 1)
+
+    @patch("integrations.imports.trakt.TraktImporter._make_api_request")
+    @patch("integrations.imports.trakt.TraktImporter._get_metadata")
+    def test_process_lists_overwrite_mode_replaces_linked_list_items(
+        self,
+        mock_get_metadata,
+        mock_make_request,
+    ):
+        """Test overwrite mode replaces the contents of linked lists."""
+        old_item = Item.objects.create(
+            title="Old Movie",
+            media_id="111",
+            media_type=MediaTypes.MOVIE.value,
+            source=Sources.TMDB.value,
+            image="https://example.com/old.jpg",
+        )
+        custom_list = CustomList.objects.create(
+            name="Favorites",
+            owner=self.user,
+            import_source=ImportedListSourceChoices.TRAKT.value,
+            import_source_id="55",
+        )
+        custom_list.items.add(old_item)
+
+        mock_get_metadata.side_effect = self._list_metadata_side_effect
+        mock_make_request.side_effect = [
+            [
+                {
+                    "name": "Favorites",
+                    "description": "",
+                    "ids": {"trakt": 55, "slug": "favorites"},
+                },
+            ],
+            [
+                {
+                    "type": "movie",
+                    "movie": {"title": "New Movie", "ids": {"tmdb": 222}},
+                },
+            ],
+            [],
+        ]
+
+        trakt_importer = TraktImporter("testuser", self.user, "overwrite")
+        trakt_importer.process_lists()
+
+        custom_list.refresh_from_db()
+        self.assertEqual(custom_list.items.count(), 1)
+        self.assertFalse(custom_list.items.filter(id=old_item.id).exists())
+        self.assertTrue(custom_list.items.filter(media_id="222").exists())
+        self.assertEqual(trakt_importer.list_counts["list_updated"], 1)
+        self.assertEqual(trakt_importer.list_counts["list_item"], 1)
+
+    @patch("integrations.imports.trakt.TraktImporter._get_metadata")
+    @patch("integrations.imports.trakt.TraktImporter._make_api_request")
+    def test_process_lists_continues_after_list_fetch_failure(
+        self,
+        mock_make_request,
+        mock_get_metadata,
+    ):
+        """Test list fetch failures become warnings and do not abort import."""
+        error_response = type("Response", (), {"status_code": 404})()
+        list_error = requests.exceptions.HTTPError(response=error_response)
+
+        mock_get_metadata.side_effect = self._list_metadata_side_effect
+        mock_make_request.side_effect = [
+            [
+                {
+                    "name": "Broken List",
+                    "description": "",
+                    "ids": {"trakt": 55, "slug": "broken-list"},
+                },
+                {
+                    "name": "Working List",
+                    "description": "",
+                    "ids": {"trakt": 56, "slug": "working-list"},
+                },
+            ],
+            list_error,
+            [
+                {
+                    "type": "movie",
+                    "movie": {"title": "Movie One", "ids": {"tmdb": 101}},
+                },
+            ],
+            [],
+        ]
+
+        trakt_importer = TraktImporter("testuser", self.user, "new")
+        trakt_importer.process_lists()
+
+        self.assertEqual(CustomList.objects.count(), 1)
+        self.assertEqual(CustomList.objects.get().name, "Working List")
+        self.assertEqual(trakt_importer.list_counts["list_created"], 1)
+        self.assertIn(
+            "List 'Broken List': unable to fetch list items from Trakt.",
+            trakt_importer.warnings,
+        )
 
     @patch("integrations.imports.trakt.TraktImporter._get_paginated_data")
     @patch("integrations.imports.trakt.TraktImporter._make_api_request")

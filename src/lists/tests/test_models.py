@@ -3,7 +3,7 @@ from django.db import IntegrityError
 from django.test import TestCase
 
 from app.models import Item, MediaTypes, Sources
-from lists.models import CustomList, CustomListItem
+from lists.models import CustomList, CustomListItem, ImportedListSourceChoices
 
 
 class CustomListModelTest(TestCase):
@@ -49,6 +49,8 @@ class CustomListModelTest(TestCase):
         self.assertEqual(self.custom_list.name, "Test List")
         self.assertEqual(self.custom_list.description, "Test Description")
         self.assertEqual(self.custom_list.owner, self.user)
+        self.assertEqual(self.custom_list.import_source, "")
+        self.assertEqual(self.custom_list.import_source_id, "")
 
     def test_custom_list_str_representation(self):
         """Test the string representation of a CustomList."""
@@ -84,6 +86,41 @@ class CustomListModelTest(TestCase):
                 item=self.item,
                 custom_list=self.custom_list,
             )
+
+    def test_imported_list_constraint(self):
+        """Test imported lists are unique per owner and external ID."""
+        CustomList.objects.create(
+            name="Imported List",
+            owner=self.user,
+            import_source=ImportedListSourceChoices.TRAKT.value,
+            import_source_id="123",
+        )
+
+        with self.assertRaises(IntegrityError):
+            CustomList.objects.create(
+                name="Duplicate Imported List",
+                owner=self.user,
+                import_source=ImportedListSourceChoices.TRAKT.value,
+                import_source_id="123",
+            )
+
+    def test_imported_list_constraint_allows_different_owners(self):
+        """Test imported list IDs can be reused by different owners."""
+        CustomList.objects.create(
+            name="Imported List",
+            owner=self.user,
+            import_source=ImportedListSourceChoices.TRAKT.value,
+            import_source_id="123",
+        )
+
+        custom_list = CustomList.objects.create(
+            name="Imported List",
+            owner=self.non_member,
+            import_source=ImportedListSourceChoices.TRAKT.value,
+            import_source_id="123",
+        )
+
+        self.assertEqual(custom_list.import_source_id, "123")
 
 
 class CustomListManagerTest(TestCase):

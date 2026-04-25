@@ -14,6 +14,7 @@ from app.models import (
     Sources,
     Status,
 )
+from integrations import tasks
 from integrations.imports import (
     helpers,
 )
@@ -172,3 +173,24 @@ class HelpersTest(TestCase):
         schedule = CrontabSchedule.objects.first()
         self.assertEqual(schedule.day_of_week, "*/2")
 
+    def test_format_import_message_with_list_counts(self):
+        """Test import summary formatting includes synced Trakt lists."""
+        message = tasks.format_import_message(
+            {
+                MediaTypes.MOVIE.value: 1,
+                "list_created": 2,
+                "list_updated": 1,
+                "list_item": 3,
+            },
+            "List 'Favorites': unable to fetch list items from Trakt.",
+        )
+
+        self.assertEqual(
+            message,
+            (
+                "Imported 1 Movie, 2 lists created, 1 list updated and "
+                "3 list items added. "
+                f"{tasks.ERROR_TITLE} "
+                "List 'Favorites': unable to fetch list items from Trakt."
+            ),
+        )

@@ -23,12 +23,21 @@ from integrations.imports import (
 
 logger = logging.getLogger(__name__)
 ERROR_TITLE = "\n\n\n Couldn't import the following media: \n\n"
+SPECIAL_IMPORT_LABELS = {
+    "list_created": ("list created", "lists created"),
+    "list_updated": ("list updated", "lists updated"),
+    "list_item": ("list item added", "list items added"),
+}
 
 
 def format_media_type_display(count, media_type):
     """Format media type display with proper pluralization."""
     if count == 0:
         return None
+    if media_type in SPECIAL_IMPORT_LABELS:
+        singular, plural = SPECIAL_IMPORT_LABELS[media_type]
+        label = singular if count == 1 else plural
+        return f"{count} {label}"
     if count == 1:
         return f"{count} {dict(MediaTypes.choices).get(media_type, media_type)}"
     return f"{count} {app_tags.media_type_readable_plural(media_type)}"
