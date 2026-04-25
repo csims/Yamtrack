@@ -4,7 +4,7 @@
        {% if forloop.last and custom_lists.has_next %} hx-get="{% url 'lists' %}?page={{ custom_lists.next_page_number }}" hx-trigger="revealed threshold:200px" hx-swap="afterend" hx-include="#filter-form" hx-indicator="#loading-indicator" {% endif %}>
     <div class="relative flex items-center justify-center">
       <img alt="{{ custom_list.name }}"
-           class="{% if custom_list.image != IMG_NONE %}w-full h-full object-cover aspect-2/3{% else %}w-3/5 h-3/5{% endif %}"
+           class="aspect-2/3 w-full {% if custom_list.image != IMG_NONE %}object-cover{% else %}object-contain{% endif %}"
            src="{{ custom_list.image }}">
 
       <div class="absolute inset-0 bg-black/40 transition-opacity group-hover:bg-black/50"></div>
