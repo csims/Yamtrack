@@ -223,7 +223,7 @@ def media_url(media):
 
     if media_type in [MediaTypes.SEASON.value, MediaTypes.EPISODE.value]:
         season_number = media["season_number"] if is_dict else media.season_number
-        return reverse(
+        season_url = reverse(
             "season_details",
             kwargs={
                 "source": source,
@@ -232,6 +232,9 @@ def media_url(media):
                 "season_number": season_number,
             },
         )
+        if media_type == MediaTypes.EPISODE.value:
+            return f"{season_url}#{component_id('episode-row', media)}"
+        return season_url
 
     return reverse(
         "media_details",
@@ -242,6 +245,27 @@ def media_url(media):
             "title": slug(title),
         },
     )
+
+
+@register.filter
+def home_media_url(media):
+    """Return the home-card destination URL, including episode anchors when present."""
+    if getattr(media, "home_season_item", None):
+        season_url = media_url(media.home_season_item)
+        if getattr(media, "home_episode_number", None):
+            episode_anchor = component_id(
+                "episode-row",
+                {
+                    "media_type": MediaTypes.EPISODE.value,
+                    "media_id": media.home_season_item.media_id,
+                    "season_number": media.home_season_item.season_number,
+                    "episode_number": media.home_episode_number,
+                },
+            )
+            return f"{season_url}#{episode_anchor}"
+        return season_url
+
+    return media_url(media.item)
 
 
 @register.simple_tag

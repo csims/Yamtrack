@@ -16,6 +16,7 @@ from app.models import (
     Sources,
     Status,
 )
+from app.templatetags import app_tags
 from app.tests.utils import mock_tv_with_seasons
 from events.models import Event
 from users.models import HomeSortChoices
@@ -125,7 +126,16 @@ class HomeViewTests(TestCase):
                 "season_number": 1,
             },
         )
-        self.assertContains(response, season_url)
+        home_episode_url = (
+            f"{season_url}#"
+            f"{app_tags.component_id('episode-row', {
+                'media_type': MediaTypes.EPISODE.value,
+                'media_id': '1668',
+                'season_number': 1,
+                'episode_number': 6,
+            })}"
+        )
+        self.assertContains(response, home_episode_url)
 
     def test_home_view_ignores_unknown_air_date_episodes(self):
         """Unknown-air-date placeholder events don't keep a finished show on home."""

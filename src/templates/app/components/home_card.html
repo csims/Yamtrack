@@ -4,16 +4,12 @@
      class="bg-base-100 rounded-lg overflow-hidden shadow-lg transition-all duration-300"
      x-data="{ trackOpen: false, listsOpen: false, historyOpen: false }">
   <div class="relative">
-    {% if media.home_season_item %}
-      <a href="{{ media.home_season_item|media_url }}">
-    {% else %}
-      <a href="{{ media.item|media_url }}">
-    {% endif %}
+    <a href="{{ media|home_media_url }}">
         <img alt="{{ media }}"
              class="lazyload w-full aspect-2/3 {% if media.home_season_item %}{% if media.home_season_item.image != IMG_NONE %}object-cover{% endif %}{% else %}{% if media.item.image != IMG_NONE %}object-cover{% endif %}{% endif %}"
              data-src="{% if media.home_season_item %}{{ media.home_season_item.image }}{% else %}{{ media.item.image }}{% endif %}"
              src="{{ IMG_NONE }}">
-      </a>
+    </a>
 
     {% if media.next_event and not media.next_event.is_max_datetime %}
       <div class="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/80 px-2 py-1.5 rounded-md shadow-md whitespace-nowrap max-w-[98%]">
@@ -40,11 +36,7 @@
     {% endif %}
 
     <div class="duration-200 absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover-tap:opacity-100{% if user.clickable_media_cards %} pointer-coarse:hidden{% endif %}">
-      {% if media.home_season_item %}
-        <a href="{{ media.home_season_item|media_url }}" class="absolute inset-0"></a>
-      {% else %}
-        <a href="{{ media.item|media_url }}" class="absolute inset-0"></a>
-      {% endif %}
+      <a href="{{ media|home_media_url }}" class="absolute inset-0"></a>
 
       <div class="relative flex items-center justify-center space-x-2.5">
         {# Track Button #}
@@ -78,15 +70,9 @@
   </div>
 
   <div class="p-3 space-y-3">
-    {% if media.home_season_item %}
-      <a href="{{ media.home_season_item|media_url }}"
-         class="text-sm font-semibold text-white hover:text-indigo-400 transition duration-300 line-clamp-1 text-center"
-         title="{{ media.home_display_title|default:media }}">{{ media.home_display_title|default:media }}</a>
-    {% else %}
-      <a href="{{ media.item|media_url }}"
-         class="text-sm font-semibold text-white hover:text-indigo-400 transition duration-300 line-clamp-1 text-center"
-         title="{{ media.home_display_title|default:media }}">{{ media.home_display_title|default:media }}</a>
-    {% endif %}
+    <a href="{{ media|home_media_url }}"
+       class="text-sm font-semibold text-white hover:text-indigo-400 transition duration-300 line-clamp-1 text-center"
+       title="{{ media.home_display_title|default:media }}">{{ media.home_display_title|default:media }}</a>
     <div id="progress-{{ media.item.media_type }}-{{ media.id }}">
       {% include "app/components/progress_changer.html" with media=media csrf_token=csrf_token MediaTypes=MediaTypes only %}
     </div>

@@ -270,6 +270,50 @@ class AppTagsTests(TestCase):
         season_dict_url = app_tags.media_url(self.season_dict)
         self.assertEqual(season_dict_url, expected_season_url)
 
+        # Test with object for Episode
+        episode_url = app_tags.media_url(self.episode_item)
+        expected_episode_url = (
+            f"{expected_season_url}#"
+            f"{app_tags.component_id('episode-row', self.episode_item)}"
+        )
+        self.assertEqual(episode_url, expected_episode_url)
+
+        # Test with dict for Episode
+        episode_dict_url = app_tags.media_url(self.episode_dict)
+        expected_episode_dict_url = (
+            f"{expected_season_url}#"
+            f"{app_tags.component_id('episode-row', self.episode_dict)}"
+        )
+        self.assertEqual(episode_dict_url, expected_episode_dict_url)
+
+    def test_home_media_url(self):
+        """Test the home_media_url filter."""
+        home_tv = MagicMock(
+            item=self.tv_item,
+            home_season_item=self.season_item,
+            home_episode_number=1,
+        )
+        expected_episode_home_url = (
+            f"{app_tags.media_url(self.season_item)}#"
+            f"{app_tags.component_id('episode-row', self.episode_dict)}"
+        )
+        self.assertEqual(
+            app_tags.home_media_url(home_tv),
+            expected_episode_home_url,
+        )
+
+        home_tv.home_episode_number = None
+        self.assertEqual(
+            app_tags.home_media_url(home_tv),
+            app_tags.media_url(self.season_item),
+        )
+
+        home_tv.home_season_item = None
+        self.assertEqual(
+            app_tags.home_media_url(home_tv),
+            app_tags.media_url(self.tv_item),
+        )
+
     def test_component_id(self):
         """Test the component_id tag."""
         # Test with object for TV
