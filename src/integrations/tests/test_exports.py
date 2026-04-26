@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.test import TestCase
 from django.urls import reverse
+from django.utils.crypto import get_random_string
 
 from app.models import (
     Anime,
@@ -20,6 +21,7 @@ from app.models import (
     Sources,
     Status,
 )
+from lists.models import CustomList, CustomListItem, ImportedListSourceChoices
 
 
 class ExportCSVTest(TestCase):
@@ -174,3 +176,99 @@ class ExportCSVTest(TestCase):
         for row in reader:
             media_id = row["media_id"]
             self.assertIn(media_id, db_media_ids)
+
+
+class ExportListCSVTest(TestCase):
+    """Test exporting custom lists to CSV."""
+
+    def setUp(self):
+        """Create custom list data for export tests."""
+        password = get_random_string(16)
+        self.credentials = {"username": "test", "password": password}
+        self.user = get_user_model().objects.create_superuser(**self.credentials)
+        self.other_user = get_user_model().objects.create_user(
+            username="other",
+            password=password,
+        )
+        self.client.login(**self.credentials)
+
+        self.movie_item = Item.objects.create(
+            media_id="10494",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.MOVIE.value,
+            title="Perfect Blue",
+            image="https://image.url/movie",
+        )
+        self.book_item = Item.objects.create(
+            media_id="OL21733390M",
+            source=Sources.OPENLIBRARY.value,
+            media_type=MediaTypes.BOOK.value,
+            title="Fantastic Mr. Fox",
+            image="https://image.url/book",
+        )
+
+        self.favorite_list = CustomList.objects.create(
+            name="Favorites",
+            description="Imported list",
+            owner=self.user,
+            import_source=ImportedListSourceChoices.TRAKT.value,
+            import_source_id="55",
+        )
+        self.empty_list = CustomList.objects.create(
+            name="Empty List",
+            description="No items yet",
+            owner=self.user,
+        )
+        other_list = CustomList.objects.create(
+            name="Other User List",
+            owner=self.other_user,
+        )
+
+        self.favorite_movie = CustomListItem.objects.create(
+            custom_list=self.favorite_list,
+            item=self.movie_item,
+        )
+        self.favorite_book = CustomListItem.objects.create(
+            custom_list=self.favorite_list,
+            item=self.book_item,
+        )
+        other_list.items.add(self.movie_item)
+
+    def test_export_lists_csv(self):
+        """Exported custom lists CSV should contain list and list_item rows."""
+        response = self.client.get(reverse("export_lists_csv"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv")
+
+        content = b"".join(response.streaming_content).decode("utf-8")
+        reader = list(csv.DictReader(StringIO(content)))
+
+        list_rows = [row for row in reader if row["row_type"] == "list"]
+        item_rows = [row for row in reader if row["row_type"] == "list_item"]
+
+        self.assertEqual(len(list_rows), 2)
+        self.assertEqual(len(item_rows), 2)
+
+        favorite_row = next(row for row in list_rows if row["list_name"] == "Favorites")
+        empty_row = next(row for row in list_rows if row["list_name"] == "Empty List")
+        self.assertEqual(
+            favorite_row["list_import_source"],
+            ImportedListSourceChoices.TRAKT.value,
+        )
+        self.assertEqual(favorite_row["list_import_source_id"], "55")
+        self.assertEqual(empty_row["list_description"], "No items yet")
+
+        exported_media_ids = {row["item_media_id"] for row in item_rows}
+        self.assertEqual(exported_media_ids, {"10494", "OL21733390M"})
+
+        book_row = next(
+            row for row in item_rows if row["item_media_id"] == "OL21733390M"
+        )
+        self.assertEqual(book_row["item_media_type"], MediaTypes.BOOK.value)
+        self.assertEqual(book_row["item_title"], "Fantastic Mr. Fox")
+        self.assertEqual(book_row["item_image"], "https://image.url/book")
+        self.assertEqual(
+            book_row["list_item_added_at"],
+            self.favorite_book.date_added.isoformat(),
+        )

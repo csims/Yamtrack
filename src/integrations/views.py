@@ -317,6 +317,28 @@ def import_yamtrack(request):
 
 
 @require_POST
+def import_yamtrack_lists(request):
+    """View for importing custom lists from Yamtrack CSV."""
+    file = request.FILES.get("yamtrack_lists_csv")
+
+    if not file:
+        messages.error(request, "Yamtrack custom lists CSV file is required.")
+        return redirect("import_data")
+
+    mode = request.POST["mode"]
+    tasks.import_yamtrack_lists.delay(
+        file=request.FILES["yamtrack_lists_csv"],
+        user_id=request.user.id,
+        mode=mode,
+    )
+    messages.info(
+        request,
+        "The task to import custom lists from Yamtrack CSV file has been queued.",
+    )
+    return redirect("import_data")
+
+
+@require_POST
 def import_hltb(request):
     """View for importing game date from HowLongToBeat."""
     file = request.FILES.get("hltb_csv")
@@ -418,6 +440,21 @@ def export_csv(request):
         headers={"Content-Disposition": f'attachment; filename="yamtrack_{now}.csv"'},
     )
     logger.info("User %s started CSV export", request.user.username)
+    return response
+
+
+@require_GET
+def export_lists_csv(request):
+    """View for exporting custom lists to a CSV file."""
+    now = timezone.localtime()
+    response = StreamingHttpResponse(
+        streaming_content=exports.generate_list_rows(request.user),
+        content_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="yamtrack_lists_{now}.csv"',
+        },
+    )
+    logger.info("User %s started custom list CSV export", request.user.username)
     return response
 
 

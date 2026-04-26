@@ -6,8 +6,26 @@ from django.db.models import Field, Prefetch
 
 from app import helpers
 from app.models import Episode, Item, MediaTypes, Season
+from lists.models import CustomList, CustomListItem
 
 logger = logging.getLogger(__name__)
+
+LIST_EXPORT_FIELDS = [
+    "row_type",
+    "list_key",
+    "list_name",
+    "list_description",
+    "list_import_source",
+    "list_import_source_id",
+    "list_item_added_at",
+    "item_source",
+    "item_media_type",
+    "item_media_id",
+    "item_season_number",
+    "item_episode_number",
+    "item_title",
+    "item_image",
+]
 
 
 class Echo:
@@ -80,6 +98,70 @@ def generate_rows(user):
             yield writer.writerow(row)
 
         logger.debug("Finished streaming %ss to CSV", media_type)
+
+
+def generate_list_rows(user):
+    """Generate CSV rows for owned custom lists and their memberships."""
+    pseudo_buffer = Echo()
+    writer = csv.writer(pseudo_buffer, quoting=csv.QUOTE_ALL)
+
+    yield writer.writerow(LIST_EXPORT_FIELDS)
+
+    custom_lists = (
+        CustomList.objects.filter(owner=user)
+        .prefetch_related(
+            Prefetch(
+                "customlistitem_set",
+                queryset=CustomListItem.objects.select_related("item").order_by(
+                    "date_added",
+                    "id",
+                ),
+            ),
+        )
+        .order_by("name", "id")
+    )
+
+    for custom_list in custom_lists:
+        list_key = f"list-{custom_list.id}"
+        yield writer.writerow(
+            [
+                "list",
+                list_key,
+                custom_list.name,
+                custom_list.description,
+                custom_list.import_source,
+                custom_list.import_source_id,
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            ],
+        )
+
+        for list_item in custom_list.customlistitem_set.all():
+            item = list_item.item
+            yield writer.writerow(
+                [
+                    "list_item",
+                    list_key,
+                    "",
+                    "",
+                    "",
+                    "",
+                    list_item.date_added.isoformat() if list_item.date_added else "",
+                    item.source,
+                    item.media_type,
+                    item.media_id,
+                    item.season_number if item.season_number is not None else "",
+                    item.episode_number if item.episode_number is not None else "",
+                    item.title,
+                    item.image,
+                ],
+            )
 
 
 def get_model_fields(model):
